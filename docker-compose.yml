@@ -1,0 +1,10 @@
+services:
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    container_name: itrans-libretranslate
+    ports:
+      - "5000:5000"
+    environment:
+      # 只加载中英文模型，降低内存与启动时间；首次启动会自动下载模型
+      - LT_LOAD_ONLY=en,zh
+    restart: unless-stopped

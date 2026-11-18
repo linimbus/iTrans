@@ -1,0 +1,59 @@
+using System;
+using System.IO;
+using System.Text.Json;
+
+namespace Itrans.Services;
+
+public sealed class AppSettings
+{
+    public string ServerUrl { get; set; } = "http://localhost:5000";
+
+    public string ApiKey { get; set; } = "";
+
+    public string Hotkey { get; set; } = "Ctrl+Alt+Q";
+
+    public bool OcrChineseSimplified { get; set; } = true;
+
+    public bool OcrChineseTraditional { get; set; }
+
+    public bool OcrEnglish { get; set; }
+
+    public string TranslationMode { get; set; } = "auto";
+
+    public bool AutoStart { get; set; }
+
+    public string FontFamily { get; set; } = "Microsoft YaHei UI";
+
+    public double FontSize { get; set; } = 13.5;
+
+    private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
+
+    public static string SettingsDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Itrans");
+
+    public static string SettingsPath => Path.Combine(SettingsDirectory, "settings.json");
+
+    public static AppSettings Load()
+    {
+        try
+        {
+            if (File.Exists(SettingsPath))
+            {
+                var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath));
+                if (settings != null) return settings;
+            }
+        }
+        catch
+        {
+        }
+        return new AppSettings();
+    }
+
+    public void Save()
+    {
+        Directory.CreateDirectory(SettingsDirectory);
+        File.WriteAllText(SettingsPath, JsonSerializer.Serialize(this, SerializerOptions));
+    }
+
+    public AppSettings Clone() => (AppSettings)MemberwiseClone();
+}
