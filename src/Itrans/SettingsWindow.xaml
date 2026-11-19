@@ -22,6 +22,10 @@
             <TextBlock Text="API Key（可选）" Style="{StaticResource FieldLabel}" />
             <TextBox x:Name="ApiKeyBox" Style="{StaticResource EditorBox}" Margin="0,0,0,14" />
 
+            <TextBlock Text="文件翻译超时（秒）" Style="{StaticResource FieldLabel}" />
+            <TextBox x:Name="FileTimeoutBox" Style="{StaticResource EditorBox}" />
+            <TextBlock Text="范围 30–3600 秒，默认 600。超时后该文件标记为失败，可增大此值后重试。" Style="{StaticResource HintText}" />
+
             <TextBlock Text="截图快捷键" Style="{StaticResource FieldLabel}" />
             <TextBox x:Name="HotkeyBox" Style="{StaticResource EditorBox}" />
             <TextBlock Text="格式示例：Ctrl+Alt+Q。支持 A-Z、0-9、F1-F12 等主键，修改后立即生效。" Style="{StaticResource HintText}" />
@@ -71,7 +75,7 @@
             <TextBlock Text="启动项写入当前用户注册表，可在任务管理器的“启动”中查看。" Style="{StaticResource HintText}" />
 
             <Border Background="#FFF7E6" CornerRadius="6" Padding="10,8" Margin="0,2,0,0">
-                <TextBlock Text="提示：LibreTranslate 需要加载 en 与 zh 模型。可在项目根目录执行 docker compose up -d 启动本地服务。"
+                <TextBlock Text="提示：默认服务地址为 http://192.168.3.5:5000。LibreTranslate 需要加载 en 与 zh 模型；也可在项目根目录执行 docker compose up -d 启动本地服务。"
                            TextWrapping="Wrap"
                            Foreground="#92400E"
                            FontSize="11.5" />

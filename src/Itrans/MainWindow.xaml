@@ -24,6 +24,7 @@
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
             <Button Content="复制原文" Style="{StaticResource GhostButton}" Margin="0,0,6,0" Click="CopyOcr_Click" />
+            <Button Content="文件翻译" Style="{StaticResource SecondaryButton}" Padding="12,6" Margin="0,0,8,0" Click="FileTranslate_Click" />
             <Button Content="设置" Style="{StaticResource SecondaryButton}" Padding="12,6" Margin="0,0,8,0" Click="Settings_Click" />
             <Button x:Name="CaptureButton" Content="截图翻译" Style="{StaticResource PrimaryButton}" Padding="16,7" Click="Capture_Click" />
         </StackPanel>
@@ -92,7 +93,7 @@
                        Foreground="{StaticResource SubtleBrush}"
                        VerticalAlignment="Center" />
             <TextBlock x:Name="ServiceText"
-                       Text="服务 http://localhost:5000"
+                       Text="服务 http://192.168.3.5:5000"
                        FontSize="11.5"
                        Foreground="{StaticResource SubtleBrush}"
                        HorizontalAlignment="Right"

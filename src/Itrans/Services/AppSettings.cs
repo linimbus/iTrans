@@ -6,7 +6,7 @@ namespace Itrans.Services;
 
 public sealed class AppSettings
 {
-    public string ServerUrl { get; set; } = "http://localhost:5000";
+    public string ServerUrl { get; set; } = "http://192.168.3.5:5000";
 
     public string ApiKey { get; set; } = "";
 
@@ -25,6 +25,10 @@ public sealed class AppSettings
     public string FontFamily { get; set; } = "Microsoft YaHei UI";
 
     public double FontSize { get; set; } = 13.5;
+
+    public int FileTranslationTimeoutSeconds { get; set; } = 600;
+
+    public string FileOutputDirectory { get; set; } = "";
 
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 

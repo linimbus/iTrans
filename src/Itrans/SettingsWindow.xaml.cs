@@ -25,6 +25,7 @@ public partial class SettingsWindow : Window
         _settings = settings;
         ServerUrlBox.Text = settings.ServerUrl;
         ApiKeyBox.Text = settings.ApiKey;
+        FileTimeoutBox.Text = settings.FileTranslationTimeoutSeconds.ToString();
         HotkeyBox.Text = settings.Hotkey;
 
         OcrSimplifiedBox.IsChecked = settings.OcrChineseSimplified;
@@ -73,6 +74,13 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        if (!int.TryParse(FileTimeoutBox.Text.Trim(), out var fileTimeout)
+            || fileTimeout < 30 || fileTimeout > 3600)
+        {
+            ShowMessage("文件翻译超时需为 30 到 3600 之间的整数秒", Brushes.OrangeRed);
+            return;
+        }
+
         var simplified = OcrSimplifiedBox.IsChecked == true;
         var traditional = OcrTraditionalBox.IsChecked == true;
         var english = OcrEnglishBox.IsChecked == true;
@@ -103,6 +111,7 @@ public partial class SettingsWindow : Window
         _settings.AutoStart = autoStart;
         _settings.FontFamily = fontFamily;
         _settings.FontSize = fontSize;
+        _settings.FileTranslationTimeoutSeconds = fileTimeout;
         DialogResult = true;
     }
 

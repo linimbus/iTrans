@@ -19,6 +19,8 @@ public partial class App : Application
 
     public TranslationService Translation { get; } = new();
 
+    public FileTranslationService FileTranslation { get; } = new();
+
     public HotkeyManager Hotkey { get; } = new();
 
     public TrayController? Tray { get; private set; }

@@ -18,6 +18,7 @@ public sealed class TrayController : IDisposable
         _icon = TrayIconFactory.CreateIcon();
 
         _captureItem = new ToolStripMenuItem();
+        var fileItem = new ToolStripMenuItem("文件翻译…");
         var showItem = new ToolStripMenuItem("显示主窗口");
         var settingsItem = new ToolStripMenuItem("设置…");
         var exitItem = new ToolStripMenuItem("退出");
@@ -30,6 +31,7 @@ public sealed class TrayController : IDisposable
         _menu.Items.AddRange(new ToolStripItem[]
         {
             _captureItem,
+            fileItem,
             showItem,
             settingsItem,
             new ToolStripSeparator(),
@@ -37,6 +39,7 @@ public sealed class TrayController : IDisposable
         });
 
         _captureItem.Click += (_, _) => _app.Home?.TriggerCapture();
+        fileItem.Click += (_, _) => _app.Home?.OpenFileTranslation();
         showItem.Click += (_, _) => _app.Home?.ShowMainWindow();
         settingsItem.Click += (_, _) => _app.Home?.OpenSettings();
         exitItem.Click += (_, _) => _app.ExitApp();

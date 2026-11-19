@@ -16,10 +16,12 @@ public partial class MainWindow : Window
     private bool _busy;
     private bool _allowClose;
     private bool _trayNoticeShown;
+    private FileTranslationWindow? _fileWindow;
 
     public MainWindow()
     {
         InitializeComponent();
+        Title = AppInfo.Title;
         App.Instance.SettingsChanged += UpdateSettingsText;
         UpdateSettingsText();
         Closing += OnClosing;
@@ -230,6 +232,27 @@ public partial class MainWindow : Window
     }
 
     private void Settings_Click(object sender, RoutedEventArgs e) => OpenSettings();
+
+    private void FileTranslate_Click(object sender, RoutedEventArgs e) => OpenFileTranslation();
+
+    public void OpenFileTranslation()
+    {
+        if (_fileWindow != null)
+        {
+            if (_fileWindow.IsVisible)
+            {
+                _fileWindow.Activate();
+                return;
+            }
+            _fileWindow = null;
+        }
+
+        var window = new FileTranslationWindow();
+        window.Closed += (_, _) => _fileWindow = null;
+        _fileWindow = window;
+        window.Show();
+        window.Activate();
+    }
 
     public void OpenSettings()
     {
