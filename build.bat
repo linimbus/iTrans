@@ -37,6 +37,8 @@ if not exist "publish\Itrans.exe" (
     goto :failed
 )
 
+if exist "publish\Itrans.pdb" del /q "publish\Itrans.pdb"
+
 echo.
 echo [OK] Build finished.
 echo      Output: %CD%\publish\Itrans.exe

@@ -59,10 +59,10 @@ dotnet run --project src/Itrans
 打包为独立单文件（目标机器无需安装 .NET）：
 
 ```bat
-dotnet publish src/Itrans -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+dotnet publish src/Itrans -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o publish
 ```
 
-生成的可执行文件位于 `publish/Itrans.exe`，可直接拷贝到其他 Windows 10/11 机器运行（仍需系统 OCR 语言包与 LibreTranslate 服务）。
+生成的可执行文件位于 `publish/Itrans.exe`，可直接拷贝到其他 Windows 10/11 机器运行（仍需系统 OCR 语言包与 LibreTranslate 服务）。项目已启用单文件压缩并仅保留中英文资源，以减小自包含包体积；WPF 不支持 Native AOT/裁剪，因此运行时仍会以压缩方式内嵌在 exe 中，无法在保持零运行时安装的同时进一步大幅缩小。
 
 也可以直接运行项目根目录的 `build.bat`（双击即可），脚本会自动检查 SDK、执行发布并在成功或失败后暂停显示结果；若提示 `publish\Itrans.exe` 被占用，请先退出正在运行的 Itrans。传入 `--nopause` 参数可在命令行中跳过结束暂停。
 
