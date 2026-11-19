@@ -2,10 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Itrans.Capture;
 using Itrans.Services;
 
@@ -13,6 +16,20 @@ namespace Itrans;
 
 public partial class MainWindow : Window
 {
+    private static readonly System.Windows.Media.Brush HealthyBrush =
+        new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x16, 0xA3, 0x4A));
+
+    private static readonly System.Windows.Media.Brush UnhealthyBrush =
+        new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xDC, 0x26, 0x26));
+
+    private static readonly System.Windows.Media.Brush CheckingBrush =
+        new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x9C, 0xA3, 0xAF));
+
+    private readonly HttpClient _healthHttp = new() { Timeout = TimeSpan.FromSeconds(5) };
+    private readonly DispatcherTimer _healthTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+    private CancellationTokenSource? _healthCts;
+    private int _healthVersion;
+
     private bool _busy;
     private bool _allowClose;
     private bool _trayNoticeShown;
@@ -22,6 +39,9 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Title = AppInfo.Title;
+        _healthTimer.Tick += (_, _) => RequestHealthCheck();
+        _healthTimer.Start();
+        Closed += OnClosedCleanupHealth;
         App.Instance.SettingsChanged += UpdateSettingsText;
         UpdateSettingsText();
         Closing += OnClosing;
@@ -32,8 +52,90 @@ public partial class MainWindow : Window
     {
         var settings = App.Instance.Settings;
         CaptureButton.ToolTip = $"截图翻译（{settings.Hotkey}）";
-        ServiceText.Text = string.IsNullOrWhiteSpace(settings.ServerUrl) ? "服务未配置" : "服务 " + settings.ServerUrl;
         ApplyContentFont(settings);
+        RequestHealthCheck(true);
+    }
+
+    private void RequestHealthCheck(bool showChecking = false)
+    {
+        var version = ++_healthVersion;
+        _healthCts?.Cancel();
+        _healthCts?.Dispose();
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+        _healthCts = cts;
+
+        if (showChecking)
+        {
+            ServiceDot.Fill = CheckingBrush;
+            ServiceDot.ToolTip = "正在检测翻译服务…";
+        }
+
+        _ = CheckServiceHealthAsync(version, cts.Token);
+    }
+
+    private async Task CheckServiceHealthAsync(int version, CancellationToken cancellationToken)
+    {
+        var baseUrl = (App.Instance.Settings.ServerUrl ?? "").Trim().TrimEnd('/');
+        bool healthy;
+        string message;
+
+        try
+        {
+            if (baseUrl.Length == 0)
+            {
+                healthy = false;
+                message = "未配置翻译服务地址";
+            }
+            else
+            {
+                using var response = await _healthHttp.GetAsync(baseUrl + "/health", cancellationToken);
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                healthy = response.IsSuccessStatusCode && IsHealthyStatus(body);
+                message = healthy ? "翻译服务正常" : $"翻译服务异常（HTTP {(int)response.StatusCode}）";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            if (version != _healthVersion) return;
+            healthy = false;
+            message = "翻译服务连接超时";
+        }
+        catch (Exception ex)
+        {
+            if (version != _healthVersion) return;
+            healthy = false;
+            message = "翻译服务不可用：" + ex.Message;
+        }
+
+        if (version != _healthVersion) return;
+
+        ServiceDot.Fill = healthy ? HealthyBrush : UnhealthyBrush;
+        ServiceDot.ToolTip = message;
+        System.Windows.Automation.AutomationProperties.SetName(ServiceDot, message);
+    }
+
+    private static bool IsHealthyStatus(string body)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty("status", out var status)
+                && status.ValueKind == JsonValueKind.String
+                && string.Equals(status.GetString(), "ok", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private void OnClosedCleanupHealth(object? sender, EventArgs e)
+    {
+        _healthTimer.Stop();
+        _healthCts?.Cancel();
+        _healthCts?.Dispose();
+        _healthHttp.Dispose();
     }
 
     private void ApplyContentFont(AppSettings settings)
@@ -74,6 +176,7 @@ public partial class MainWindow : Window
         Activate();
         Topmost = true;
         Topmost = false;
+        RequestHealthCheck();
     }
 
     public void TriggerCapture()

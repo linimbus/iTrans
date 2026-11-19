@@ -29,6 +29,7 @@ public partial class FileTranslationWindow : Window
         UpdateServiceText();
         UpdateSupportedText();
         ApplyDirectionFromSettings();
+        OutputDirBox.Text = ResolveInitialOutputDirectory();
         UpdateEmptyHint();
         SetRunning(false);
         Loaded += OnLoaded;
@@ -67,6 +68,36 @@ public partial class FileTranslationWindow : Window
     {
         var timeout = App.Instance.Settings.FileTranslationTimeoutSeconds;
         SupportedText.Text = $"支持格式：{string.Join(" ", _supportedExtensions)} · 单文件超时 {timeout} 秒（可在设置修改）";
+    }
+
+    private static string GetDefaultOutputDirectory()
+    {
+        var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (!string.IsNullOrWhiteSpace(desktop)) return desktop;
+
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return string.IsNullOrWhiteSpace(profile) ? Environment.CurrentDirectory : profile;
+    }
+
+    private static string ResolveInitialOutputDirectory()
+    {
+        var configured = App.Instance.Settings.FileOutputDirectory?.Trim();
+        return string.IsNullOrWhiteSpace(configured) ? GetDefaultOutputDirectory() : configured;
+    }
+
+    private static void RememberOutputDirectory(string path)
+    {
+        var settings = App.Instance.Settings;
+        if (string.Equals(settings.FileOutputDirectory, path, StringComparison.OrdinalIgnoreCase)) return;
+
+        settings.FileOutputDirectory = path;
+        try
+        {
+            settings.Save();
+        }
+        catch
+        {
+        }
     }
 
     private void ApplyDirectionFromSettings()
@@ -184,7 +215,16 @@ public partial class FileTranslationWindow : Window
         var current = OutputDirBox.Text.Trim();
         if (current.Length > 0 && Directory.Exists(current)) dialog.SelectedPath = current;
         if (dialog.ShowDialog() == Forms.DialogResult.OK)
+        {
             OutputDirBox.Text = dialog.SelectedPath;
+            RememberOutputDirectory(dialog.SelectedPath);
+        }
+    }
+
+    private void OutputDirBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        var path = OutputDirBox.Text.Trim();
+        if (path.Length > 0) RememberOutputDirectory(path);
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)
@@ -211,18 +251,22 @@ public partial class FileTranslationWindow : Window
         }
 
         var outputDirectory = OutputDirBox.Text.Trim();
-        if (outputDirectory.Length > 0)
+        if (outputDirectory.Length == 0)
         {
-            try
-            {
-                Directory.CreateDirectory(outputDirectory);
-            }
-            catch (Exception ex)
-            {
-                SetStatus("输出目录不可用：" + ex.Message);
-                return;
-            }
+            outputDirectory = GetDefaultOutputDirectory();
+            OutputDirBox.Text = outputDirectory;
         }
+
+        try
+        {
+            Directory.CreateDirectory(outputDirectory);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("输出目录不可用：" + ex.Message);
+            return;
+        }
+        RememberOutputDirectory(outputDirectory);
 
         var (source, target) = GetDirection();
         _cancellation = new CancellationTokenSource();
@@ -247,10 +291,7 @@ public partial class FileTranslationWindow : Window
                     var result = await App.Instance.FileTranslation.TranslateFileAsync(
                         item.FullPath, source, target, settings, token);
 
-                    var directory = outputDirectory.Length > 0
-                        ? outputDirectory
-                        : Path.GetDirectoryName(item.FullPath) ?? Environment.CurrentDirectory;
-                    var outputPath = EnsureUniquePath(Path.Combine(directory, result.FileName));
+                    var outputPath = EnsureUniquePath(Path.Combine(outputDirectory, result.FileName));
                     await File.WriteAllBytesAsync(outputPath, result.Content, token);
 
                     item.OutputPath = outputPath;

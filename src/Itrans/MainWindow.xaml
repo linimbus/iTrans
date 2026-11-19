@@ -92,12 +92,12 @@
                        FontSize="11.5"
                        Foreground="{StaticResource SubtleBrush}"
                        VerticalAlignment="Center" />
-            <TextBlock x:Name="ServiceText"
-                       Text="服务 http://192.168.3.5:5000"
-                       FontSize="11.5"
-                       Foreground="{StaticResource SubtleBrush}"
-                       HorizontalAlignment="Right"
-                       VerticalAlignment="Center" />
+            <Ellipse x:Name="ServiceDot"
+                     Width="9"
+                     Height="9"
+                     Fill="#9CA3AF"
+                     HorizontalAlignment="Right"
+                     VerticalAlignment="Center" />
         </Grid>
     </Grid>
 </Window>
