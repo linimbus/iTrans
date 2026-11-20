@@ -21,10 +21,10 @@ if not exist "src\Itrans\Itrans.csproj" (
     goto :failed
 )
 
-echo [1/1] Publishing self-contained single-file build...
+echo [1/1] Publishing framework-dependent single-file build...
 echo.
 
-dotnet publish "src\Itrans\Itrans.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+dotnet publish "src\Itrans\Itrans.csproj" -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
 if errorlevel 1 (
     echo.
     echo [ERROR] Build failed.

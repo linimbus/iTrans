@@ -21,6 +21,8 @@ public partial class App : Application
 
     public FileTranslationService FileTranslation { get; } = new();
 
+    public ServiceHealthMonitor Health { get; } = new();
+
     public HotkeyManager Hotkey { get; } = new();
 
     public TrayController? Tray { get; private set; }
@@ -46,6 +48,7 @@ public partial class App : Application
         Home = new MainWindow();
         Tray = new TrayController(this);
         Home.Show();
+        Health.Start();
 
         var error = RegisterHotkey();
         if (error != null)
@@ -80,6 +83,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        Health.Dispose();
         Tray?.Dispose();
         Hotkey.Dispose();
         _mutex?.Dispose();

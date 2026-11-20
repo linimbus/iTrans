@@ -26,7 +26,7 @@ public partial class FileTranslationWindow : Window
         InitializeComponent();
         FileList.ItemsSource = _files;
         _files.CollectionChanged += (_, _) => UpdateEmptyHint();
-        UpdateServiceText();
+        UpdateServiceDot();
         UpdateSupportedText();
         ApplyDirectionFromSettings();
         OutputDirBox.Text = ResolveInitialOutputDirectory();
@@ -35,11 +35,18 @@ public partial class FileTranslationWindow : Window
         Loaded += OnLoaded;
         Closing += (_, _) => _cancellation?.Cancel();
         App.Instance.SettingsChanged += OnSettingsChanged;
-        Closed += (_, _) => App.Instance.SettingsChanged -= OnSettingsChanged;
+        App.Instance.Health.StateChanged += UpdateServiceDot;
+        Closed += (_, _) =>
+        {
+            App.Instance.SettingsChanged -= OnSettingsChanged;
+            App.Instance.Health.StateChanged -= UpdateServiceDot;
+        };
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        App.Instance.Health.Check();
+
         try
         {
             _supportedExtensions = await App.Instance.FileTranslation.GetSupportedExtensionsAsync(
@@ -54,20 +61,22 @@ public partial class FileTranslationWindow : Window
 
     private void OnSettingsChanged()
     {
-        UpdateServiceText();
+        App.Instance.Health.Check(true);
         UpdateSupportedText();
     }
 
-    private void UpdateServiceText()
+    private void UpdateServiceDot()
     {
-        var url = App.Instance.Settings.ServerUrl;
-        ServiceText.Text = string.IsNullOrWhiteSpace(url) ? "服务未配置" : "服务 " + url;
+        var health = App.Instance.Health;
+        ServiceDot.Fill = ServiceHealthBrushes.For(health.State);
+        ServiceDot.ToolTip = health.Message;
+        System.Windows.Automation.AutomationProperties.SetName(ServiceDot, health.Message);
     }
 
     private void UpdateSupportedText()
     {
         var timeout = App.Instance.Settings.FileTranslationTimeoutSeconds;
-        SupportedText.Text = $"支持格式：{string.Join(" ", _supportedExtensions)} · 单文件超时 {timeout} 秒（可在设置修改）";
+        SetStatus($"支持格式：{string.Join(" ", _supportedExtensions)} · 单文件超时 {timeout} 秒（可在设置修改）");
     }
 
     private static string GetDefaultOutputDirectory()
@@ -154,9 +163,31 @@ public partial class FileTranslationWindow : Window
         };
         if (dialog.ShowDialog(this) != true) return;
 
+        AddFiles(dialog.FileNames);
+    }
+
+    private void FileList_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = !_running && e.Data.GetDataPresent(DataFormats.FileDrop)
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void FileList_Drop(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        if (_running) return;
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths || paths.Length == 0) return;
+
+        AddFiles(paths);
+    }
+
+    private void AddFiles(IEnumerable<string> paths)
+    {
         var added = 0;
         var skipped = 0;
-        foreach (var path in dialog.FileNames)
+        foreach (var path in paths)
         {
             if (_files.Any(item => string.Equals(item.FullPath, path, StringComparison.OrdinalIgnoreCase)))
                 continue;

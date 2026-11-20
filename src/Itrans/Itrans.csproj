@@ -11,13 +11,11 @@
     <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <AssemblyName>Itrans</AssemblyName>
     <RootNamespace>Itrans</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Product>itrans 截图翻译</Product>
     <Description>Windows 截图 OCR 翻译与文件翻译工具</Description>
     <ApplicationIcon>Assets\itrans.ico</ApplicationIcon>
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
-    <!-- 单文件发布时压缩内嵌程序集，减小自包含包体积 -->
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <!-- 只保留中文（简体）与英文资源，去掉不需要的本地化附属程序集 -->
     <SatelliteResourceLanguages>en;zh-Hans</SatelliteResourceLanguages>
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>

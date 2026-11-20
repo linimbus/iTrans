@@ -20,12 +20,12 @@ Windows 10 / 11 原生截图 OCR 翻译工具：按下全局快捷键框选屏�
 - 托盘菜单：截图翻译、文件翻译、显示主窗口、设置、退出
 - 主窗口右下角显示翻译服务状态：绿点表示正常，红点表示异常，悬停可查看详情；每 30 秒检测一次 `/health`
 - 服务地址、API Key、快捷键、OCR 语种、翻译方向、文件翻译超时、字体、开机启动均可在设置中修改
-- 主窗口标题显示程序名称与版本号（版本来自项目文件 `<Version>`，当前为 v1.1.0）
+- 主窗口标题显示程序名称与版本号（版本来自项目文件 `<Version>`，当前为 v1.2.0）
 
 ## 环境要求
 
 - Windows 10 1809+ 或 Windows 11
-- .NET 10 Desktop Runtime（从源码运行或框架依赖发布时）
+- .NET 10 Desktop Runtime（x64）：运行发布包必需，可从官方下载安装：<https://dotnet.microsoft.com/download/dotnet/10.0>
 - Windows OCR 语言包：按需安装中文（简体/繁体）与英文
   - 设置 → 时间和语言 → 语言和区域 → 添加语言
   - 在语言选项中安装“光学字符识别”(OCR)
@@ -56,13 +56,13 @@ docker compose up -d
 dotnet run --project src/Itrans
 ```
 
-打包为独立单文件（目标机器无需安装 .NET）：
+打包为单文件（目标机器需安装 .NET 10 Desktop Runtime）：
 
 ```bat
-dotnet publish src/Itrans -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o publish
+dotnet publish src/Itrans -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
 ```
 
-生成的可执行文件位于 `publish/Itrans.exe`，可直接拷贝到其他 Windows 10/11 机器运行（仍需系统 OCR 语言包与 LibreTranslate 服务）。项目已启用单文件压缩并仅保留中英文资源，以减小自包含包体积；WPF 不支持 Native AOT/裁剪，因此运行时仍会以压缩方式内嵌在 exe 中，无法在保持零运行时安装的同时进一步大幅缩小。
+生成的可执行文件位于 `publish/Itrans.exe`。该发布方式不再内嵌 .NET 运行时，体积显著减小；首次运行前请安装官方 .NET 10 Desktop Runtime（x64）。若未安装，启动时会自动弹出提示并给出官方下载链接。
 
 也可以直接运行项目根目录的 `build.bat`（双击即可），脚本会自动检查 SDK、执行发布并在成功或失败后暂停显示结果；若提示 `publish\Itrans.exe` 被占用，请先退出正在运行的 Itrans。传入 `--nopause` 参数可在命令行中跳过结束暂停。
 
