@@ -43,7 +43,7 @@ public partial class SettingsWindow : Window
             .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
         FontFamilyBox.Text = settings.FontFamily;
-        FontSizeBox.ItemsSource = new[] { "11", "12", "13", "13.5", "14", "15", "16", "18", "20", "22", "24", "28", "32" };
+        FontSizeBox.ItemsSource = new[] { "11", "11.5", "12", "12.5", "13", "13.5", "14", "15", "16", "18", "20", "22", "24", "28", "32" };
         FontSizeBox.Text = settings.FontSize.ToString("0.#", CultureInfo.InvariantCulture);
 
         Loaded += (_, _) => ServerUrlBox.Focus();

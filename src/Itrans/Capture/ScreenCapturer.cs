@@ -182,15 +182,15 @@ internal sealed class ScreenCaptureOverlay : Form
 
         using var font = new Font("Microsoft YaHei UI", 11f, FontStyle.Regular, GraphicsUnit.Point);
         var size = graphics.MeasureString(hint, font);
-        var boxWidth = size.Width + 28;
-        var boxHeight = size.Height + 14;
+        var boxWidth = size.Width + 4;
+        var boxHeight = size.Height + 4;
         var x = local.X + (local.Width - boxWidth) / 2f;
         var y = local.Y + Math.Max(32f, local.Height / 10f);
 
         using var background = new SolidBrush(Color.FromArgb(210, 17, 24, 39));
         using var text = new SolidBrush(Color.White);
         graphics.FillRectangle(background, x, y, boxWidth, boxHeight);
-        graphics.DrawString(hint, font, text, x + 14, y + 7);
+        graphics.DrawString(hint, font, text, x + 2, y + 2);
     }
 
     private void DrawSizeLabel(Graphics graphics)
@@ -198,8 +198,8 @@ internal sealed class ScreenCaptureOverlay : Form
         var label = $"{_selection.Width} × {_selection.Height}";
         using var font = new Font("Microsoft YaHei UI", 9f, FontStyle.Regular, GraphicsUnit.Point);
         var size = graphics.MeasureString(label, font);
-        var boxWidth = size.Width + 14;
-        var boxHeight = size.Height + 8;
+        var boxWidth = size.Width + 4;
+        var boxHeight = size.Height + 4;
         var x = (float)_selection.Left;
         var y = _selection.Top - boxHeight - 6f;
         if (y < 4) y = _selection.Top + 6f;
@@ -208,7 +208,7 @@ internal sealed class ScreenCaptureOverlay : Form
         using var background = new SolidBrush(Color.FromArgb(220, 17, 24, 39));
         using var text = new SolidBrush(Color.White);
         graphics.FillRectangle(background, x, y, boxWidth, boxHeight);
-        graphics.DrawString(label, font, text, x + 7, y + 4);
+        graphics.DrawString(label, font, text, x + 2, y + 2);
     }
 
     private static Rectangle Normalize(Point a, Point b)

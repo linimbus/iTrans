@@ -24,7 +24,7 @@ public sealed class AppSettings
 
     public string FontFamily { get; set; } = "Microsoft YaHei UI";
 
-    public double FontSize { get; set; } = 13.5;
+    public double FontSize { get; set; } = 12.5;
 
     public int FileTranslationTimeoutSeconds { get; set; } = 600;
 

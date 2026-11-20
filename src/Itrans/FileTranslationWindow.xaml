@@ -3,17 +3,18 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="文件翻译"
         Icon="Assets/itrans-256.png"
-        Width="700"
-        Height="560"
-        MinWidth="600"
-        MinHeight="460"
+        Width="620"
+        Height="460"
+        MinWidth="520"
+        MinHeight="360"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgBrush}"
         FontFamily="Microsoft YaHei UI"
-        FontSize="13"
+        FontSize="12"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
-    <Grid Margin="18,14,18,14">
+    <Grid Margin="12,10,12,10">
+        <!-- 行结构：标题 / 翻译选项 / 文件列表 / 进度状态 / 底部操作栏 -->
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -22,26 +23,32 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,12">
+        <!-- 窗口标题与当前服务地址 -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,8">
             <TextBlock Text="文件翻译"
-                       FontSize="16"
+                       FontSize="15"
                        FontWeight="SemiBold"
                        Foreground="{StaticResource TextBrush}"
                        VerticalAlignment="Center"
                        DockPanel.Dock="Left" />
             <TextBlock x:Name="ServiceText"
-                       FontSize="11.5"
+                       FontSize="10.5"
                        Foreground="{StaticResource SubtleBrush}"
                        HorizontalAlignment="Right"
                        VerticalAlignment="Center" />
         </DockPanel>
 
-        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,12">
+        <!-- 翻译选项：翻译方向与译文保存路径并列显示 -->
+        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,8">
             <StackPanel>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="翻译方向"
                                Style="{StaticResource FieldLabel}"
@@ -49,9 +56,8 @@
                                Margin="0,0,8,0" />
                     <ComboBox x:Name="DirectionBox"
                               Grid.Column="1"
-                              Height="34"
-                              MinWidth="200"
-                              HorizontalAlignment="Left"
+                              Height="30"
+                              MinWidth="150"
                               SelectedValuePath="Tag"
                               VerticalContentAlignment="Center">
                         <ComboBoxItem Content="自动检测 → 中文" Tag="auto-zh" />
@@ -59,41 +65,38 @@
                         <ComboBoxItem Content="中文 → 英文" Tag="zh-en" />
                         <ComboBoxItem Content="英文 → 中文" Tag="en-zh" />
                     </ComboBox>
-                </Grid>
-
-                <TextBlock Text="译文保存位置"
-                           Style="{StaticResource FieldLabel}"
-                           Margin="0,10,0,6" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="3"
+                               Text="译文保存位置"
+                               Style="{StaticResource FieldLabel}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,6,0" />
                     <TextBox x:Name="OutputDirBox"
+                             Grid.Column="4"
                              Style="{StaticResource EditorBox}"
-                             Height="34"
+                             Height="30"
                              VerticalContentAlignment="Center"
                              LostFocus="OutputDirBox_LostFocus"
                              ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
                     <Button x:Name="BrowseButton"
                             Content="浏览…"
                             Style="{StaticResource SecondaryButton}"
-                            Grid.Column="1"
-                            Padding="10,5"
+                            Grid.Column="5"
+                            Padding="8,4"
                             Margin="6,0,0,0"
                             Click="Browse_Click" />
                 </Grid>
                 <TextBlock Text="首次使用默认为桌面路径，之后自动记住上一次选择的目录。"
                            Style="{StaticResource HintText}"
-                           Margin="0,6,0,0" />
+                           Margin="0,4,0,0" />
                 <TextBlock x:Name="SupportedText"
                            Text="支持格式：.txt .odt .odp .docx .pptx .epub .html .srt .pdf"
                            Style="{StaticResource HintText}"
-                           Margin="0,4,0,0" />
+                           Margin="0,2,0,0" />
             </StackPanel>
         </Border>
 
-        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="6" Margin="0,0,0,10">
+        <!-- 待翻译文件列表，空列表时显示提示文字 -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="6" Margin="0,0,0,6">
             <Grid>
                 <ListView x:Name="FileList"
                           BorderThickness="0"
@@ -101,9 +104,9 @@
                           MouseDoubleClick="FileList_MouseDoubleClick">
                     <ListView.View>
                         <GridView>
-                            <GridViewColumn Header="文件" Width="360" DisplayMemberBinding="{Binding FileName}" />
-                            <GridViewColumn Header="大小" Width="80" DisplayMemberBinding="{Binding SizeText}" />
-                            <GridViewColumn Header="状态" Width="190">
+                            <GridViewColumn Header="文件" Width="300" DisplayMemberBinding="{Binding FileName}" />
+                            <GridViewColumn Header="大小" Width="70" DisplayMemberBinding="{Binding SizeText}" />
+                            <GridViewColumn Header="状态" Width="150">
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding Status}"
@@ -118,7 +121,7 @@
                 </ListView>
                 <TextBlock x:Name="EmptyHint"
                            Text="尚未添加文件，点击下方“添加文件…”选择要翻译的文档"
-                           FontSize="12"
+                           FontSize="11"
                            Foreground="{StaticResource SubtleBrush}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
@@ -126,14 +129,15 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="3" Margin="0,0,0,10">
+        <!-- 进度条与状态信息，仅在翻译过程中显示进度条 -->
+        <Grid Grid.Row="3" Margin="0,0,0,6">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <ProgressBar x:Name="BusyBar"
                          Height="3"
-                         Margin="0,0,0,6"
+                         Margin="0,0,0,4"
                          IsIndeterminate="True"
                          Visibility="Collapsed"
                          Foreground="{StaticResource AccentBrush}"
@@ -142,29 +146,30 @@
             <Grid Grid.Row="1">
                 <TextBlock x:Name="StatusText"
                            Text="就绪"
-                           FontSize="11.5"
+                           FontSize="10.5"
                            Foreground="{StaticResource SubtleBrush}"
                            VerticalAlignment="Center" />
                 <TextBlock x:Name="ProgressText"
-                           FontSize="11.5"
+                           FontSize="10.5"
                            Foreground="{StaticResource SubtleBrush}"
                            HorizontalAlignment="Right"
                            VerticalAlignment="Center" />
             </Grid>
         </Grid>
 
+        <!-- 底部操作栏：左侧文件管理按钮，右侧开始或取消翻译 -->
         <Grid Grid.Row="4">
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="AddButton"
                         Content="添加文件…"
                         Style="{StaticResource SecondaryButton}"
-                        Padding="14,7"
-                        Margin="0,0,8,0"
+                        Padding="10,5"
+                        Margin="0,0,6,0"
                         Click="AddFiles_Click" />
                 <Button x:Name="RemoveButton"
                         Content="移除选中"
                         Style="{StaticResource GhostButton}"
-                        Margin="0,0,4,0"
+                        Margin="0,0,2,0"
                         Click="RemoveSelected_Click" />
                 <Button x:Name="ClearButton"
                         Content="清空"
@@ -175,14 +180,14 @@
                 <Button x:Name="CancelButton"
                         Content="取消"
                         Style="{StaticResource SecondaryButton}"
-                        Padding="14,7"
-                        Margin="0,0,8,0"
+                        Padding="10,5"
+                        Margin="0,0,6,0"
                         IsEnabled="False"
                         Click="Cancel_Click" />
                 <Button x:Name="StartButton"
                         Content="开始翻译"
                         Style="{StaticResource PrimaryButton}"
-                        Padding="18,7"
+                        Padding="14,5"
                         Click="Start_Click" />
             </StackPanel>
         </Grid>

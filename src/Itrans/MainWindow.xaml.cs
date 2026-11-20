@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Itrans.Capture;
@@ -33,6 +34,7 @@ public partial class MainWindow : Window
     private bool _busy;
     private bool _allowClose;
     private bool _trayNoticeShown;
+    private string _lastTranslatedText = "";
     private FileTranslationWindow? _fileWindow;
 
     public MainWindow()
@@ -229,6 +231,7 @@ public partial class MainWindow : Window
     private async Task RecognizeAndTranslateAsync(Bitmap bitmap)
     {
         OcrTextBox.Clear();
+        _lastTranslatedText = "";
         TranslationTextBox.Clear();
         DirectionText.Text = "识别中…";
         SetStatus("正在用 Windows OCR 识别文字…");
@@ -271,6 +274,7 @@ public partial class MainWindow : Window
         var text = OcrTextBox.Text.Trim();
         if (text.Length == 0)
         {
+            _lastTranslatedText = "";
             SetStatus("没有可翻译的文字，请先截图识别");
             return;
         }
@@ -283,6 +287,7 @@ public partial class MainWindow : Window
         {
             var result = await App.Instance.Translation.TranslateAsync(text, App.Instance.Settings, CancellationToken.None);
             TranslationTextBox.Text = result.TranslatedText;
+            _lastTranslatedText = text;
             DirectionText.Text = result.ChineseSource ? "中文 → English" : "English → 中文";
             SetStatus($"翻译完成 · {DateTime.Now:HH:mm:ss}");
         }
@@ -295,6 +300,24 @@ public partial class MainWindow : Window
     }
 
     private void Capture_Click(object sender, RoutedEventArgs e) => TriggerCapture();
+
+    private async void OcrTextBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        var text = OcrTextBox.Text.Trim();
+        if (_busy || text.Length == 0 || string.Equals(text, _lastTranslatedText, StringComparison.Ordinal)) return;
+
+        _busy = true;
+        CaptureButton.IsEnabled = false;
+        try
+        {
+            await TranslateAsync();
+        }
+        finally
+        {
+            _busy = false;
+            CaptureButton.IsEnabled = true;
+        }
+    }
 
     private async void Retranslate_Click(object sender, RoutedEventArgs e)
     {
