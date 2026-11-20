@@ -7,37 +7,56 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using Itrans.Capture;
+using Itrans.Localization;
 using Itrans.Services;
 
 namespace Itrans;
 
 public partial class MainWindow : Window
 {
+    private static LocalizationService Loc => LocalizationService.Instance;
+
     private bool _busy;
     private bool _allowClose;
     private bool _trayNoticeShown;
     private string _lastTranslatedText = "";
     private FileTranslationWindow? _fileWindow;
+    private string _statusKey = "main.statusReady";
+    private object?[] _statusArgs = Array.Empty<object?>();
+    private string _directionKey = "main.directionAuto";
+    private object?[] _directionArgs = Array.Empty<object?>();
+    private string? _directionSource;
+    private string? _directionTarget;
 
     public MainWindow()
     {
         InitializeComponent();
         Title = AppInfo.Title;
         App.Instance.Health.StateChanged += UpdateServiceDot;
+        Loc.LanguageChanged += OnLanguageChanged;
         Closed += OnClosedCleanup;
         App.Instance.SettingsChanged += UpdateSettingsText;
         UpdateSettingsText();
         UpdateServiceDot();
+        SetStatus("main.statusReady", App.Instance.Settings.Hotkey);
+        SetDirection("main.directionAuto");
         Closing += OnClosing;
-        StatusText.Text = $"就绪 · 按 {App.Instance.Settings.Hotkey} 截图并翻译";
     }
 
     private void UpdateSettingsText()
     {
         var settings = App.Instance.Settings;
-        CaptureButton.ToolTip = $"截图翻译（{settings.Hotkey}）";
+        CaptureButton.ToolTip = Loc.Format("main.captureTooltip", settings.Hotkey);
         ApplyContentFont(settings);
         App.Instance.Health.Check(true);
+    }
+
+    private void OnLanguageChanged()
+    {
+        Title = AppInfo.Title;
+        CaptureButton.ToolTip = Loc.Format("main.captureTooltip", App.Instance.Settings.Hotkey);
+        RefreshStatus();
+        RefreshDirection();
     }
 
     private void UpdateServiceDot()
@@ -50,6 +69,7 @@ public partial class MainWindow : Window
 
     private void OnClosedCleanup(object? sender, EventArgs e)
     {
+        Loc.LanguageChanged -= OnLanguageChanged;
         App.Instance.Health.StateChanged -= UpdateServiceDot;
         App.Instance.SettingsChanged -= UpdateSettingsText;
     }
@@ -79,7 +99,7 @@ public partial class MainWindow : Window
         if (!_trayNoticeShown)
         {
             _trayNoticeShown = true;
-            App.Instance.Tray?.ShowBalloon("itrans 仍在运行", "已最小化到托盘，双击托盘图标或按快捷键可继续使用。");
+            App.Instance.Tray?.ShowBalloon(Loc.T("main.trayStillRunningTitle"), Loc.T("main.trayStillRunningText"));
         }
     }
 
@@ -116,7 +136,7 @@ public partial class MainWindow : Window
             if (bitmap == null)
             {
                 if (wasVisible) ShowMainWindow();
-                SetStatus("已取消截图");
+                SetStatus("main.statusCaptureCancelled");
                 return;
             }
 
@@ -133,7 +153,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             ShowMainWindow();
-            SetStatus("截图失败：" + ex.Message);
+            SetStatus("main.statusCaptureFailed", ex.Message);
         }
         finally
         {
@@ -147,8 +167,8 @@ public partial class MainWindow : Window
         OcrTextBox.Clear();
         _lastTranslatedText = "";
         TranslationTextBox.Clear();
-        DirectionText.Text = "识别中…";
-        SetStatus("正在用 Windows OCR 识别文字…");
+        SetDirection("main.directionRecognizing");
+        SetStatus("main.statusRecognizing");
 
         string text;
         try
@@ -157,15 +177,15 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            DirectionText.Text = "识别失败";
-            SetStatus("文字识别失败：" + ex.Message);
+            SetDirection("main.directionRecognizeFailed");
+            SetStatus("main.statusRecognizeFailed", ex.Message);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(text))
         {
-            DirectionText.Text = "未识别到文字";
-            SetStatus("未识别到文字，请重新截图");
+            SetDirection("main.directionNoText");
+            SetStatus("main.statusNoTextRecognized");
             return;
         }
 
@@ -189,12 +209,12 @@ public partial class MainWindow : Window
         if (text.Length == 0)
         {
             _lastTranslatedText = "";
-            SetStatus("没有可翻译的文字，请先截图识别");
+            SetStatus("main.noTextToTranslate");
             return;
         }
 
-        DirectionText.Text = "翻译中…";
-        SetStatus("正在请求 LibreTranslate…");
+        SetDirection("main.directionTranslating");
+        SetStatus("main.statusTranslating");
         TranslationTextBox.Clear();
 
         try
@@ -202,14 +222,14 @@ public partial class MainWindow : Window
             var result = await App.Instance.Translation.TranslateAsync(text, App.Instance.Settings, CancellationToken.None);
             TranslationTextBox.Text = result.TranslatedText;
             _lastTranslatedText = text;
-            DirectionText.Text = result.ChineseSource ? "中文 → English" : "English → 中文";
-            SetStatus($"翻译完成 · {DateTime.Now:HH:mm:ss}");
+            SetDirectionResult(result.Source, result.Target);
+            SetStatus("main.statusTranslated", DateTime.Now.ToString("HH:mm:ss"));
         }
         catch (Exception ex)
         {
-            TranslationTextBox.Text = "翻译失败：" + ex.Message;
-            DirectionText.Text = "翻译失败";
-            SetStatus("翻译失败：" + ex.Message);
+            TranslationTextBox.Text = Loc.Format("main.statusTranslateFailed", ex.Message);
+            SetDirection("main.directionTranslateFailed");
+            SetStatus("main.statusTranslateFailed", ex.Message);
         }
     }
 
@@ -249,25 +269,27 @@ public partial class MainWindow : Window
         }
     }
 
-    private void CopyOcr_Click(object sender, RoutedEventArgs e) => CopyToClipboard(OcrTextBox.Text, "原文");
+    private void CopyOcr_Click(object sender, RoutedEventArgs e)
+        => CopyToClipboard(OcrTextBox.Text, "main.nothingToCopySource", "main.copiedSource");
 
-    private void CopyTranslation_Click(object sender, RoutedEventArgs e) => CopyToClipboard(TranslationTextBox.Text, "译文");
+    private void CopyTranslation_Click(object sender, RoutedEventArgs e)
+        => CopyToClipboard(TranslationTextBox.Text, "main.nothingToCopyTranslation", "main.copiedTranslation");
 
-    private void CopyToClipboard(string text, string name)
+    private void CopyToClipboard(string text, string emptyKey, string copiedKey)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
-            SetStatus($"没有可复制的{name}");
+            SetStatus(emptyKey);
             return;
         }
         try
         {
             Clipboard.SetText(text);
-            SetStatus($"已复制{name}");
+            SetStatus(copiedKey);
         }
         catch (Exception ex)
         {
-            SetStatus("复制失败：" + ex.Message);
+            SetStatus("main.copyFailed", ex.Message);
         }
     }
 
@@ -304,15 +326,52 @@ public partial class MainWindow : Window
         UpdateSettingsText();
         if (error != null)
         {
-            SetStatus("设置已保存，但快捷键注册失败：" + error);
-            App.Instance.Tray?.ShowBalloon("快捷键注册失败", error);
+            SetStatus("main.settingsSavedHotkeyFailed", error);
+            App.Instance.Tray?.ShowBalloon(Loc.T("main.hotkeyRegisterFailedTitle"), error);
         }
         else
         {
-            SetStatus("设置已保存");
-            App.Instance.Tray?.ShowBalloon("设置已保存", $"截图快捷键：{App.Instance.Settings.Hotkey}");
+            SetStatus("main.settingsSaved");
+            App.Instance.Tray?.ShowBalloon(Loc.T("main.settingsSaved"), Loc.Format("main.settingsSavedBalloon", App.Instance.Settings.Hotkey));
         }
     }
 
-    private void SetStatus(string message) => StatusText.Text = message;
+    private void SetStatus(string key, params object?[] args)
+    {
+        _statusKey = key;
+        _statusArgs = args;
+        StatusText.Text = Loc.Format(key, args);
+    }
+
+    private void RefreshStatus() => StatusText.Text = Loc.Format(_statusKey, _statusArgs);
+
+    private void SetDirection(string key, params object?[] args)
+    {
+        _directionKey = key;
+        _directionArgs = args;
+        _directionSource = null;
+        _directionTarget = null;
+        DirectionText.Text = Loc.Format(key, args);
+    }
+
+    private void SetDirectionResult(string source, string target)
+    {
+        _directionSource = source;
+        _directionTarget = target;
+        DirectionText.Text = FormatDirection(source, target);
+    }
+
+    private string FormatDirection(string source, string target)
+        => Loc.Format("main.directionFormat", App.Instance.GetLanguageName(source), App.Instance.GetLanguageName(target));
+
+    private void RefreshDirection()
+    {
+        if (_directionSource != null && _directionTarget != null)
+        {
+            DirectionText.Text = FormatDirection(_directionSource, _directionTarget);
+            return;
+        }
+
+        DirectionText.Text = Loc.Format(_directionKey, _directionArgs);
+    }
 }

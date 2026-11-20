@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Itrans.Localization;
 
 namespace Itrans.Capture;
 
@@ -18,7 +19,7 @@ public static class ScreenCapturer
         {
             virtualBounds = SystemInformation.VirtualScreen;
             if (virtualBounds.Width <= 0 || virtualBounds.Height <= 0)
-                throw new InvalidOperationException("无法获取屏幕尺寸。");
+                throw new InvalidOperationException(LocalizationService.Instance.T("error.screenSize"));
 
             snapshot = new Bitmap(virtualBounds.Width, virtualBounds.Height, PixelFormat.Format32bppArgb);
             using var graphics = Graphics.FromImage(snapshot);
@@ -66,7 +67,7 @@ internal sealed class ScreenCaptureOverlay : Form
         Cursor = Cursors.Cross;
         KeyPreview = true;
         DoubleBuffered = true;
-        Text = "itrans 截图";
+        Text = LocalizationService.Instance.T("capture.windowTitle");
     }
 
     protected override void OnShown(EventArgs e)
@@ -172,7 +173,7 @@ internal sealed class ScreenCaptureOverlay : Form
 
     private void DrawHint(Graphics graphics)
     {
-        const string hint = "拖动鼠标选择区域 · Esc 或右键取消";
+        var hint = LocalizationService.Instance.T("capture.hint");
         var screen = Screen.FromPoint(Cursor.Position);
         var local = new Rectangle(
             screen.Bounds.X - _virtualBounds.X,

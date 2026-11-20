@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Itrans.Localization;
 using Windows.Globalization;
 using Windows.Graphics.Imaging;
 using Windows.Media.Ocr;
@@ -56,8 +57,7 @@ public sealed class OcrService
         engine ??= OcrEngine.TryCreateFromUserProfileLanguages();
         if (engine == null)
         {
-            throw new InvalidOperationException(
-                "系统未安装可用的 OCR 语言包。请打开 Windows 设置 → 时间和语言 → 语言和区域，添加所需语言，并在语言选项中安装“光学字符识别”。");
+            throw new InvalidOperationException(LocalizationService.Instance.T("error.ocrNoLanguage"));
         }
 
         var result = await engine.RecognizeAsync(softwareBitmap);
@@ -70,8 +70,7 @@ public sealed class OcrService
             && languageTags.Any(tag => tag.StartsWith("zh", StringComparison.OrdinalIgnoreCase))
             && !engine.RecognizerLanguage.LanguageTag.StartsWith("zh", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException(
-                "未能识别文字：可能缺少中文 OCR 语言包。请在 Windows 设置 → 时间和语言 → 语言和区域 → 中文 → 语言选项中安装“光学字符识别”。");
+            throw new InvalidOperationException(LocalizationService.Instance.T("error.ocrMissingChinese"));
         }
 
         return string.Join(Environment.NewLine, lines);

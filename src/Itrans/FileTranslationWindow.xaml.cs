@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using Itrans.Localization;
 using Itrans.Services;
 using Forms = System.Windows.Forms;
 
@@ -16,30 +17,41 @@ namespace Itrans;
 
 public partial class FileTranslationWindow : Window
 {
+    private static LocalizationService Loc => LocalizationService.Instance;
+
     private readonly ObservableCollection<FileItem> _files = new();
     private IReadOnlyList<string> _supportedExtensions = FileTranslationService.DefaultSupportedExtensions;
     private CancellationTokenSource? _cancellation;
     private bool _running;
+    private string _statusKey = "file.supportedFormats";
+    private object?[] _statusArgs = Array.Empty<object?>();
 
     public FileTranslationWindow()
     {
         InitializeComponent();
         FileList.ItemsSource = _files;
         _files.CollectionChanged += (_, _) => UpdateEmptyHint();
+        UpdateColumnHeaders();
         UpdateServiceDot();
-        UpdateSupportedText();
+        PopulateLanguageBoxes(App.Instance.Languages);
         ApplyDirectionFromSettings();
+        UpdateSupportedText();
         OutputDirBox.Text = ResolveInitialOutputDirectory();
         UpdateEmptyHint();
         SetRunning(false);
+
         Loaded += OnLoaded;
         Closing += (_, _) => _cancellation?.Cancel();
         App.Instance.SettingsChanged += OnSettingsChanged;
         App.Instance.Health.StateChanged += UpdateServiceDot;
+        App.Instance.LanguagesChanged += OnLanguagesChanged;
+        Loc.LanguageChanged += OnLanguageChanged;
         Closed += (_, _) =>
         {
             App.Instance.SettingsChanged -= OnSettingsChanged;
             App.Instance.Health.StateChanged -= UpdateServiceDot;
+            App.Instance.LanguagesChanged -= OnLanguagesChanged;
+            Loc.LanguageChanged -= OnLanguageChanged;
         };
     }
 
@@ -56,13 +68,30 @@ public partial class FileTranslationWindow : Window
         {
         }
 
+        await App.Instance.RefreshLanguagesAsync();
+        ApplyDirectionFromSettings();
         UpdateSupportedText();
     }
 
     private void OnSettingsChanged()
     {
         App.Instance.Health.Check(true);
+        ApplyDirectionFromSettings();
         UpdateSupportedText();
+    }
+
+    private void OnLanguagesChanged()
+    {
+        PopulateLanguageBoxes(App.Instance.Languages);
+        ApplyDirectionFromSettings();
+    }
+
+    private void OnLanguageChanged()
+    {
+        UpdateColumnHeaders();
+        RefreshStatus();
+        PopulateLanguageBoxes(App.Instance.Languages);
+        foreach (var item in _files) item.RefreshLocalization();
     }
 
     private void UpdateServiceDot()
@@ -73,10 +102,58 @@ public partial class FileTranslationWindow : Window
         System.Windows.Automation.AutomationProperties.SetName(ServiceDot, health.Message);
     }
 
+    private void UpdateColumnHeaders()
+    {
+        FileNameColumn.Header = Loc.T("file.columnFile");
+        FileSizeColumn.Header = Loc.T("file.columnSize");
+        FileStatusColumn.Header = Loc.T("file.columnStatus");
+    }
+
+    private void PopulateLanguageBoxes(IReadOnlyList<TranslationLanguage>? languages)
+    {
+        languages ??= App.Instance.Languages;
+        var source = SourceBox.SelectedValue as string ?? App.Instance.Settings.GetSourceLanguage();
+        var target = TargetBox.SelectedValue as string ?? App.Instance.Settings.GetTargetLanguage();
+
+        var options = languages
+            .Where(item => !item.Code.Equals("auto", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var sourceItems = new List<TranslationLanguage>
+        {
+            new("auto", Loc.T("language.auto")),
+        };
+        sourceItems.AddRange(options);
+        if (!source.Equals("auto", StringComparison.OrdinalIgnoreCase)
+            && options.All(item => !item.Code.Equals(source, StringComparison.OrdinalIgnoreCase)))
+        {
+            sourceItems.Add(new TranslationLanguage(source, source));
+        }
+
+        var targetItems = new List<TranslationLanguage>
+        {
+            new("auto", Loc.T("language.autoPair")),
+        };
+        targetItems.AddRange(options);
+        if (!target.Equals("auto", StringComparison.OrdinalIgnoreCase)
+            && options.All(item => !item.Code.Equals(target, StringComparison.OrdinalIgnoreCase)))
+        {
+            targetItems.Add(new TranslationLanguage(target, target));
+        }
+
+        SourceBox.ItemsSource = sourceItems;
+        SourceBox.SelectedValue = source;
+        if (SourceBox.SelectedIndex < 0) SourceBox.SelectedIndex = 0;
+
+        TargetBox.ItemsSource = targetItems;
+        TargetBox.SelectedValue = target;
+        if (TargetBox.SelectedIndex < 0) TargetBox.SelectedIndex = 0;
+    }
+
     private void UpdateSupportedText()
     {
         var timeout = App.Instance.Settings.FileTranslationTimeoutSeconds;
-        SetStatus($"支持格式：{string.Join(" ", _supportedExtensions)} · 单文件超时 {timeout} 秒（可在设置修改）");
+        SetStatus("file.supportedFormats", string.Join(" ", _supportedExtensions), timeout);
     }
 
     private static string GetDefaultOutputDirectory()
@@ -111,24 +188,18 @@ public partial class FileTranslationWindow : Window
 
     private void ApplyDirectionFromSettings()
     {
-        DirectionBox.SelectedValue = App.Instance.Settings.TranslationMode switch
-        {
-            "zh-en" => "zh-en",
-            "en-zh" => "en-zh",
-            _ => "auto-zh",
-        };
-        if (DirectionBox.SelectedIndex < 0) DirectionBox.SelectedIndex = 0;
+        SourceBox.SelectedValue = App.Instance.Settings.GetSourceLanguage();
+        TargetBox.SelectedValue = App.Instance.Settings.GetTargetLanguage();
+        if (SourceBox.SelectedIndex < 0) SourceBox.SelectedIndex = 0;
+        if (TargetBox.SelectedIndex < 0) TargetBox.SelectedIndex = 0;
     }
 
     private (string Source, string Target) GetDirection()
     {
-        return (DirectionBox.SelectedValue as string) switch
-        {
-            "zh-en" => ("zh", "en"),
-            "en-zh" => ("en", "zh"),
-            "auto-en" => ("auto", "en"),
-            _ => ("auto", "zh"),
-        };
+        var source = SourceBox.SelectedValue as string;
+        var target = TargetBox.SelectedValue as string;
+        return (string.IsNullOrWhiteSpace(source) ? "auto" : source,
+                string.IsNullOrWhiteSpace(target) ? "auto" : target);
     }
 
     private void UpdateEmptyHint()
@@ -144,7 +215,8 @@ public partial class FileTranslationWindow : Window
         ClearButton.IsEnabled = !running;
         StartButton.IsEnabled = !running;
         CancelButton.IsEnabled = running;
-        DirectionBox.IsEnabled = !running;
+        SourceBox.IsEnabled = !running;
+        TargetBox.IsEnabled = !running;
         OutputDirBox.IsEnabled = !running;
         BrowseButton.IsEnabled = !running;
         BusyBar.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
@@ -156,7 +228,7 @@ public partial class FileTranslationWindow : Window
 
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "选择要翻译的文件",
+            Title = Loc.T("file.selectFilesTitle"),
             Multiselect = true,
             CheckFileExists = true,
             Filter = BuildFilter(),
@@ -204,17 +276,17 @@ public partial class FileTranslationWindow : Window
         }
 
         if (skipped > 0)
-            SetStatus($"已添加 {added} 个文件，跳过 {skipped} 个不支持的格式");
+            SetStatus("file.addedWithSkipped", added, skipped);
         else if (added > 0)
-            SetStatus($"已添加 {added} 个文件");
+            SetStatus("file.addedCount", added);
         else
-            SetStatus("没有添加新文件");
+            SetStatus("file.noNewFiles");
     }
 
     private string BuildFilter()
     {
         var patterns = string.Join(";", _supportedExtensions.Select(extension => "*" + extension));
-        return $"LibreTranslate 支持的文件|{patterns}|所有文件|*.*";
+        return $"{Loc.T("file.filterSupported")}|{patterns}|{Loc.T("file.filterAll")}|*.*";
     }
 
     private void RemoveSelected_Click(object sender, RoutedEventArgs e)
@@ -223,7 +295,7 @@ public partial class FileTranslationWindow : Window
 
         var selected = FileList.SelectedItems.Cast<FileItem>().ToArray();
         foreach (var item in selected) _files.Remove(item);
-        if (selected.Length > 0) SetStatus($"已移除 {selected.Length} 个文件");
+        if (selected.Length > 0) SetStatus("file.removedCount", selected.Length);
     }
 
     private void Clear_Click(object sender, RoutedEventArgs e)
@@ -231,14 +303,14 @@ public partial class FileTranslationWindow : Window
         if (_running) return;
 
         _files.Clear();
-        SetStatus("已清空文件列表");
+        SetStatus("file.cleared");
     }
 
     private void Browse_Click(object sender, RoutedEventArgs e)
     {
         using var dialog = new Forms.FolderBrowserDialog
         {
-            Description = "选择译文保存目录",
+            Description = Loc.T("file.selectOutputDir"),
             UseDescriptionForTitle = true,
             ShowNewFolderButton = true,
         };
@@ -262,7 +334,7 @@ public partial class FileTranslationWindow : Window
     {
         _cancellation?.Cancel();
         CancelButton.IsEnabled = false;
-        SetStatus("正在取消…");
+        SetStatus("file.cancelling");
     }
 
     private async void Start_Click(object sender, RoutedEventArgs e)
@@ -270,14 +342,14 @@ public partial class FileTranslationWindow : Window
         if (_running) return;
         if (_files.Count == 0)
         {
-            SetStatus("请先添加要翻译的文件");
+            SetStatus("file.addFilesFirst");
             return;
         }
 
         var settings = App.Instance.Settings;
         if (string.IsNullOrWhiteSpace(settings.ServerUrl))
         {
-            SetStatus("请先在设置中填写 LibreTranslate 服务地址");
+            SetStatus("file.serverUrlRequired");
             return;
         }
 
@@ -294,26 +366,33 @@ public partial class FileTranslationWindow : Window
         }
         catch (Exception ex)
         {
-            SetStatus("输出目录不可用：" + ex.Message);
+            SetStatus("file.outputUnavailable", ex.Message);
             return;
         }
         RememberOutputDirectory(outputDirectory);
 
         var (source, target) = GetDirection();
+        if (!source.Equals("auto", StringComparison.OrdinalIgnoreCase)
+            && source.Equals(target, StringComparison.OrdinalIgnoreCase))
+        {
+            SetStatus("settings.sameLanguage");
+            return;
+        }
+
         _cancellation = new CancellationTokenSource();
         var token = _cancellation.Token;
         var succeeded = 0;
         var failed = 0;
 
         SetRunning(true);
-        SetStatus($"开始翻译…（单文件超时 {settings.FileTranslationTimeoutSeconds} 秒）");
+        SetStatus("file.starting", settings.FileTranslationTimeoutSeconds);
         try
         {
             foreach (var item in _files)
             {
                 if (token.IsCancellationRequested) break;
 
-                item.Status = "上传翻译中…";
+                item.SetStatus("file.uploading");
                 item.StatusBrush = FileItem.RunningBrush;
                 ProgressText.Text = item.FileName;
 
@@ -326,19 +405,19 @@ public partial class FileTranslationWindow : Window
                     await File.WriteAllBytesAsync(outputPath, result.Content, token);
 
                     item.OutputPath = outputPath;
-                    item.Status = "完成 · " + Path.GetFileName(outputPath);
+                    item.SetStatus("file.done", Path.GetFileName(outputPath));
                     item.StatusBrush = FileItem.SuccessBrush;
                     succeeded++;
                 }
                 catch (OperationCanceledException)
                 {
-                    item.Status = "已取消";
+                    item.SetStatus("file.cancelled");
                     item.StatusBrush = FileItem.WaitingBrush;
                     break;
                 }
                 catch (Exception ex)
                 {
-                    item.Status = "失败：" + Shorten(ex.Message, 80);
+                    item.SetStatus("file.failed", Shorten(ex.Message, 80));
                     item.StatusBrush = FileItem.ErrorBrush;
                     failed++;
                 }
@@ -353,12 +432,14 @@ public partial class FileTranslationWindow : Window
             ProgressText.Text = "";
 
             if (cancelled)
-                SetStatus($"已取消：成功 {succeeded}，失败 {failed}");
+                SetStatus("file.cancelledSummary", succeeded, failed);
+            else if (failed == 0)
+                SetStatus("file.completedSummary", succeeded);
             else
-                SetStatus(failed == 0 ? $"翻译完成：成功 {succeeded} 个文件" : $"翻译结束：成功 {succeeded}，失败 {failed}");
+                SetStatus("file.endedSummary", succeeded, failed);
 
             if (!cancelled && succeeded > 0)
-                App.Instance.Tray?.ShowBalloon("文件翻译完成", $"已保存 {succeeded} 个译文文件。");
+                App.Instance.Tray?.ShowBalloon(Loc.T("file.completedBalloonTitle"), Loc.Format("file.completedBalloonText", succeeded));
         }
     }
 
@@ -395,7 +476,14 @@ public partial class FileTranslationWindow : Window
         }
     }
 
-    private void SetStatus(string message) => StatusText.Text = message;
+    private void SetStatus(string key, params object?[] args)
+    {
+        _statusKey = key;
+        _statusArgs = args;
+        RefreshStatus();
+    }
+
+    private void RefreshStatus() => StatusText.Text = Loc.Format(_statusKey, _statusArgs);
 }
 
 public sealed class FileItem : INotifyPropertyChanged
@@ -405,7 +493,9 @@ public sealed class FileItem : INotifyPropertyChanged
     public static readonly Brush SuccessBrush = new SolidColorBrush(Color.FromRgb(0x0F, 0x9D, 0x58));
     public static readonly Brush ErrorBrush = new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
 
-    private string _status = "等待";
+    private static LocalizationService Loc => LocalizationService.Instance;
+    private string _statusKey = "file.statusWaiting";
+    private object?[] _statusArgs = Array.Empty<object?>();
     private Brush _statusBrush = WaitingBrush;
 
     public FileItem(string fullPath)
@@ -423,16 +513,17 @@ public sealed class FileItem : INotifyPropertyChanged
 
     public string? OutputPath { get; set; }
 
-    public string Status
+    public string Status => Loc.Format(_statusKey, _statusArgs);
+
+    public void SetStatus(string key, params object?[] args)
     {
-        get => _status;
-        set
-        {
-            if (_status == value) return;
-            _status = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Status)));
-        }
+        _statusKey = key;
+        _statusArgs = args;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Status)));
     }
+
+    public void RefreshLocalization()
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Status)));
 
     public Brush StatusBrush
     {

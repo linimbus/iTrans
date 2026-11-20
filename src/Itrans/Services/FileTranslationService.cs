@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Itrans.Localization;
 
 namespace Itrans.Services;
 
@@ -67,7 +68,7 @@ public sealed class FileTranslationService
     {
         var baseUrl = (settings.ServerUrl ?? "").Trim().TrimEnd('/');
         if (baseUrl.Length == 0)
-            throw new InvalidOperationException("请先在设置中填写 LibreTranslate 服务地址。");
+            throw new InvalidOperationException(LocalizationService.Instance.T("error.serverUrlRequired"));
 
         var timeoutSeconds = settings.FileTranslationTimeoutSeconds > 0
             ? Math.Clamp(settings.FileTranslationTimeoutSeconds, 30, 3600)
@@ -81,7 +82,7 @@ public sealed class FileTranslationService
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new TimeoutException($"文件翻译超时（{timeoutSeconds} 秒），可在设置中增大“文件翻译超时”。");
+            throw new TimeoutException(LocalizationService.Instance.Format("error.fileTimeout", timeoutSeconds));
         }
     }
 
@@ -100,7 +101,7 @@ public sealed class FileTranslationService
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException($"文件翻译失败：HTTP {(int)response.StatusCode} {ExtractError(errorBody)}");
+            throw new InvalidOperationException(LocalizationService.Instance.Format("error.fileHttp", (int)response.StatusCode, ExtractError(errorBody)));
         }
 
         var mediaType = response.Content.Headers.ContentType?.MediaType ?? "";
@@ -126,7 +127,7 @@ public sealed class FileTranslationService
                     && document.RootElement.TryGetProperty("error", out var error)
                     && error.ValueKind == JsonValueKind.String)
                 {
-                    throw new InvalidOperationException("文件翻译失败：" + error.GetString());
+                    throw new InvalidOperationException(LocalizationService.Instance.Format("error.fileFailed", error.GetString()));
                 }
             }
         }
@@ -135,13 +136,13 @@ public sealed class FileTranslationService
         }
 
         if (string.IsNullOrWhiteSpace(url))
-            throw new InvalidOperationException("文件翻译服务未返回译文下载地址。");
+            throw new InvalidOperationException(LocalizationService.Instance.T("error.fileNoUrl"));
 
         using var download = await _http.GetAsync(ResolveDownloadUri(baseUrl, url!), cancellationToken);
         if (!download.IsSuccessStatusCode)
         {
             var errorBody = await download.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException($"下载译文失败：HTTP {(int)download.StatusCode} {ExtractError(errorBody)}");
+            throw new InvalidOperationException(LocalizationService.Instance.Format("error.fileDownload", (int)download.StatusCode, ExtractError(errorBody)));
         }
 
         var content = await download.Content.ReadAsByteArrayAsync(cancellationToken);

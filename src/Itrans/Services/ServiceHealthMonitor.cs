@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Itrans.Localization;
 
 namespace Itrans.Services;
 
@@ -37,17 +38,22 @@ public sealed class ServiceHealthMonitor : IDisposable
     private CancellationTokenSource? _cts;
     private int _version;
     private bool _disposed;
+    private string _messageKey = "service.checking";
+    private object?[] _messageArgs = Array.Empty<object?>();
 
     public ServiceHealthState State { get; private set; } = ServiceHealthState.Unknown;
 
-    public string Message { get; private set; } = "正在检测翻译服务…";
+    public string Message => LocalizationService.Instance.Format(_messageKey, _messageArgs);
 
     public event Action? StateChanged;
 
     public ServiceHealthMonitor()
     {
         _timer.Tick += (_, _) => Check();
+        LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
     }
+
+    private void OnLanguageChanged() => StateChanged?.Invoke();
 
     public void Start()
     {
@@ -68,7 +74,7 @@ public sealed class ServiceHealthMonitor : IDisposable
 
         if (showChecking)
         {
-            Update(ServiceHealthState.Checking, "正在检测翻译服务…");
+            Update(ServiceHealthState.Checking, "service.checking");
         }
 
         _ = CheckAsync(version, cts.Token);
@@ -78,14 +84,16 @@ public sealed class ServiceHealthMonitor : IDisposable
     {
         var baseUrl = (App.Instance.Settings.ServerUrl ?? "").Trim().TrimEnd('/');
         ServiceHealthState state;
-        string message;
+        string messageKey;
+        object?[] messageArgs;
 
         try
         {
             if (baseUrl.Length == 0)
             {
                 state = ServiceHealthState.Unhealthy;
-                message = "未配置翻译服务地址";
+                messageKey = "service.notConfigured";
+                messageArgs = Array.Empty<object?>();
             }
             else
             {
@@ -93,30 +101,34 @@ public sealed class ServiceHealthMonitor : IDisposable
                 var body = await response.Content.ReadAsStringAsync(cancellationToken);
                 var healthy = response.IsSuccessStatusCode && IsHealthyStatus(body);
                 state = healthy ? ServiceHealthState.Healthy : ServiceHealthState.Unhealthy;
-                message = healthy ? "翻译服务正常" : $"翻译服务异常（HTTP {(int)response.StatusCode}）";
+                messageKey = healthy ? "service.healthy" : "service.abnormalHttp";
+                messageArgs = healthy ? Array.Empty<object?>() : new object?[] { (int)response.StatusCode };
             }
         }
         catch (OperationCanceledException)
         {
             if (version != _version) return;
             state = ServiceHealthState.Unhealthy;
-            message = "翻译服务连接超时";
+            messageKey = "service.timeout";
+            messageArgs = Array.Empty<object?>();
         }
         catch (Exception ex)
         {
             if (version != _version) return;
             state = ServiceHealthState.Unhealthy;
-            message = "翻译服务不可用：" + ex.Message;
+            messageKey = "service.unavailable";
+            messageArgs = new object?[] { ex.Message };
         }
 
         if (version != _version) return;
-        Update(state, message);
+        Update(state, messageKey, messageArgs);
     }
 
-    private void Update(ServiceHealthState state, string message)
+    private void Update(ServiceHealthState state, string messageKey, params object?[] messageArgs)
     {
         State = state;
-        Message = message;
+        _messageKey = messageKey;
+        _messageArgs = messageArgs;
         StateChanged?.Invoke();
     }
 
@@ -145,5 +157,6 @@ public sealed class ServiceHealthMonitor : IDisposable
         _cts?.Dispose();
         _cts = null;
         _http.Dispose();
+        LocalizationService.Instance.LanguageChanged -= OnLanguageChanged;
     }
 }

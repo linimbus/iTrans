@@ -3,16 +3,20 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
-using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using Itrans.Interop;
+using Itrans.Localization;
 using Itrans.Services;
 
 namespace Itrans;
 
 public partial class SettingsWindow : Window
 {
+    private static LocalizationService Loc => LocalizationService.Instance;
+
     private readonly AppSettings _settings;
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(15) };
 
@@ -23,6 +27,11 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         MaxHeight = Math.Max(400, SystemParameters.WorkArea.Height - 48);
         _settings = settings;
+
+        UiLanguageBox.ItemsSource = LocalizationService.SupportedLanguages;
+        UiLanguageBox.SelectedValue = LocalizationService.Normalize(settings.UiLanguage);
+        if (UiLanguageBox.SelectedIndex < 0) UiLanguageBox.SelectedIndex = 0;
+
         ServerUrlBox.Text = settings.ServerUrl;
         ApiKeyBox.Text = settings.ApiKey;
         FileTimeoutBox.Text = settings.FileTranslationTimeoutSeconds.ToString();
@@ -32,8 +41,7 @@ public partial class SettingsWindow : Window
         OcrTraditionalBox.IsChecked = settings.OcrChineseTraditional;
         OcrEnglishBox.IsChecked = settings.OcrEnglish;
 
-        TranslationModeBox.SelectedValue = settings.TranslationMode;
-        if (TranslationModeBox.SelectedIndex < 0) TranslationModeBox.SelectedIndex = 0;
+        PopulateLanguageBoxes(App.Instance.Languages);
 
         AutoStartBox.IsChecked = AutoStartManager.IsEnabled();
 
@@ -46,7 +54,62 @@ public partial class SettingsWindow : Window
         FontSizeBox.ItemsSource = new[] { "11", "11.5", "12", "12.5", "13", "13.5", "14", "15", "16", "18", "20", "22", "24", "28", "32" };
         FontSizeBox.Text = settings.FontSize.ToString("0.#", CultureInfo.InvariantCulture);
 
-        Loaded += (_, _) => ServerUrlBox.Focus();
+        Loaded += async (_, _) =>
+        {
+            ServerUrlBox.Focus();
+            await RefreshLanguagesAsync();
+        };
+    }
+
+    private async Task RefreshLanguagesAsync()
+    {
+        var url = ServerUrlBox.Text.Trim().TrimEnd('/');
+        if (url.Length == 0) return;
+
+        var temp = new AppSettings { ServerUrl = url, ApiKey = ApiKeyBox.Text.Trim() };
+        var languages = await App.Instance.Translation.GetLanguagesAsync(temp, CancellationToken.None);
+        if (languages.Count > 0) PopulateLanguageBoxes(languages);
+    }
+
+    private void PopulateLanguageBoxes(IReadOnlyList<TranslationLanguage>? languages)
+    {
+        languages ??= App.Instance.Languages;
+        var source = SourceLanguageBox.SelectedValue as string ?? _settings.GetSourceLanguage();
+        var target = TargetLanguageBox.SelectedValue as string ?? _settings.GetTargetLanguage();
+
+        var options = languages
+            .Where(item => !item.Code.Equals("auto", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var sourceItems = new List<TranslationLanguage>
+        {
+            new("auto", Loc.T("language.auto")),
+        };
+        sourceItems.AddRange(options);
+        if (!source.Equals("auto", StringComparison.OrdinalIgnoreCase)
+            && options.All(item => !item.Code.Equals(source, StringComparison.OrdinalIgnoreCase)))
+        {
+            sourceItems.Add(new TranslationLanguage(source, source));
+        }
+
+        var targetItems = new List<TranslationLanguage>
+        {
+            new("auto", Loc.T("language.autoPair")),
+        };
+        targetItems.AddRange(options);
+        if (!target.Equals("auto", StringComparison.OrdinalIgnoreCase)
+            && options.All(item => !item.Code.Equals(target, StringComparison.OrdinalIgnoreCase)))
+        {
+            targetItems.Add(new TranslationLanguage(target, target));
+        }
+
+        SourceLanguageBox.ItemsSource = sourceItems;
+        SourceLanguageBox.SelectedValue = source;
+        if (SourceLanguageBox.SelectedIndex < 0) SourceLanguageBox.SelectedIndex = 0;
+
+        TargetLanguageBox.ItemsSource = targetItems;
+        TargetLanguageBox.SelectedValue = target;
+        if (TargetLanguageBox.SelectedIndex < 0) TargetLanguageBox.SelectedIndex = 0;
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -56,28 +119,28 @@ public partial class SettingsWindow : Window
         var hotkey = HotkeyBox.Text.Trim();
         if (!HotkeyManager.TryParse(hotkey, out _, out _, out var hotkeyError))
         {
-            ShowMessage("快捷键无效：" + hotkeyError, Brushes.OrangeRed);
+            ShowMessage(Loc.Format("settings.invalidHotkey", hotkeyError), Brushes.OrangeRed);
             return;
         }
 
         var fontFamily = FontFamilyBox.Text.Trim();
         if (fontFamily.Length == 0)
         {
-            ShowMessage("字体名称不能为空", Brushes.OrangeRed);
+            ShowMessage(Loc.T("settings.emptyFont"), Brushes.OrangeRed);
             return;
         }
 
         if (!double.TryParse(FontSizeBox.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var fontSize)
             || double.IsNaN(fontSize) || fontSize < 8 || fontSize > 72)
         {
-            ShowMessage("字号需为 8 到 72 之间的数字", Brushes.OrangeRed);
+            ShowMessage(Loc.T("settings.invalidFontSize"), Brushes.OrangeRed);
             return;
         }
 
         if (!int.TryParse(FileTimeoutBox.Text.Trim(), out var fileTimeout)
             || fileTimeout < 30 || fileTimeout > 3600)
         {
-            ShowMessage("文件翻译超时需为 30 到 3600 之间的整数秒", Brushes.OrangeRed);
+            ShowMessage(Loc.T("settings.invalidTimeout"), Brushes.OrangeRed);
             return;
         }
 
@@ -86,7 +149,16 @@ public partial class SettingsWindow : Window
         var english = OcrEnglishBox.IsChecked == true;
         if (!simplified && !traditional && !english)
         {
-            ShowMessage("请至少勾选一种 OCR 识别语种", Brushes.OrangeRed);
+            ShowMessage(Loc.T("settings.ocrRequired"), Brushes.OrangeRed);
+            return;
+        }
+
+        var source = SourceLanguageBox.SelectedValue as string ?? "auto";
+        var target = TargetLanguageBox.SelectedValue as string ?? "auto";
+        if (!source.Equals("auto", StringComparison.OrdinalIgnoreCase)
+            && source.Equals(target, StringComparison.OrdinalIgnoreCase))
+        {
+            ShowMessage(Loc.T("settings.sameLanguage"), Brushes.OrangeRed);
             return;
         }
 
@@ -97,17 +169,19 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            ShowMessage("设置开机启动失败：" + ex.Message, Brushes.OrangeRed);
+            ShowMessage(Loc.Format("settings.autoStartFailed", ex.Message), Brushes.OrangeRed);
             return;
         }
 
+        _settings.UiLanguage = UiLanguageBox.SelectedValue as string ?? LocalizationService.Normalize(_settings.UiLanguage);
         _settings.ServerUrl = url;
         _settings.ApiKey = ApiKeyBox.Text.Trim();
         _settings.Hotkey = hotkey;
         _settings.OcrChineseSimplified = simplified;
         _settings.OcrChineseTraditional = traditional;
         _settings.OcrEnglish = english;
-        _settings.TranslationMode = TranslationModeBox.SelectedValue as string ?? "auto";
+        _settings.TranslationSource = source;
+        _settings.TranslationTarget = target;
         _settings.AutoStart = autoStart;
         _settings.FontFamily = fontFamily;
         _settings.FontSize = fontSize;
@@ -122,54 +196,38 @@ public partial class SettingsWindow : Window
         if (!TryReadServerUrl(out var url)) return;
 
         TestButton.IsEnabled = false;
-        ShowMessage("正在连接 " + url + " …", Brushes.Gray);
+        ShowMessage(Loc.Format("settings.testConnecting", url), Brushes.Gray);
         try
         {
             using var response = await _http.GetAsync(url + "/languages");
             var body = await response.Content.ReadAsStringAsync();
             if (!response.IsSuccessStatusCode)
             {
-                ShowMessage($"连接失败：HTTP {(int)response.StatusCode}", Brushes.OrangeRed);
+                ShowMessage(Loc.Format("settings.testFailedHttp", (int)response.StatusCode), Brushes.OrangeRed);
                 return;
             }
 
-            var codes = new List<string>();
-            try
-            {
-                using var document = JsonDocument.Parse(body);
-                if (document.RootElement.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var element in document.RootElement.EnumerateArray())
-                    {
-                        if (element.TryGetProperty("code", out var code) && code.ValueKind == JsonValueKind.String)
-                        {
-                            codes.Add(code.GetString() ?? "");
-                        }
-                    }
-                }
-            }
-            catch (JsonException)
-            {
-            }
+            var languages = TranslationService.ParseLanguages(body);
+            if (languages.Count > 0) PopulateLanguageBoxes(languages);
 
-            var hasChinese = codes.Any(c => c.StartsWith("zh", StringComparison.OrdinalIgnoreCase));
-            var hasEnglish = codes.Any(c => string.Equals(c, "en", StringComparison.OrdinalIgnoreCase));
+            var hasChinese = languages.Any(item => item.Code.StartsWith("zh", StringComparison.OrdinalIgnoreCase));
+            var hasEnglish = languages.Any(item => item.Code.Equals("en", StringComparison.OrdinalIgnoreCase));
             if (hasChinese && hasEnglish)
             {
-                ShowMessage($"连接成功，已加载 {codes.Count} 种语言（含中文和英文）", Brushes.SeaGreen);
+                ShowMessage(Loc.Format("settings.testSuccess", languages.Count), Brushes.SeaGreen);
             }
-            else if (codes.Count > 0)
+            else if (languages.Count > 0)
             {
-                ShowMessage("连接成功，但服务缺少中文或英文模型，请检查 LT_LOAD_ONLY 配置。", Brushes.DarkOrange);
+                ShowMessage(Loc.T("settings.testMissingModels"), Brushes.DarkOrange);
             }
             else
             {
-                ShowMessage("连接成功，但服务未返回语言列表。", Brushes.DarkOrange);
+                ShowMessage(Loc.T("settings.testNoLanguages"), Brushes.DarkOrange);
             }
         }
         catch (Exception ex)
         {
-            ShowMessage("连接失败：" + ex.Message, Brushes.OrangeRed);
+            ShowMessage(Loc.Format("settings.testFailed", ex.Message), Brushes.OrangeRed);
         }
         finally
         {
@@ -183,7 +241,7 @@ public partial class SettingsWindow : Window
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
             || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
-            ShowMessage("服务地址必须是 http:// 或 https:// 开头的完整地址", Brushes.OrangeRed);
+            ShowMessage(Loc.T("settings.invalidServerUrl"), Brushes.OrangeRed);
             return false;
         }
         return true;

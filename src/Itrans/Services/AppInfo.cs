@@ -1,10 +1,11 @@
 using System.Reflection;
+using Itrans.Localization;
 
 namespace Itrans.Services;
 
 public static class AppInfo
 {
-    public const string Name = "itrans 截图翻译";
+    public static string Name => LocalizationService.Instance.T("app.name");
 
     public static string Version { get; } = ResolveVersion();
 

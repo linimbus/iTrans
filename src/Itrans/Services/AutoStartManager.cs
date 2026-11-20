@@ -1,4 +1,5 @@
 using System;
+using Itrans.Localization;
 using Microsoft.Win32;
 
 namespace Itrans.Services;
@@ -26,7 +27,7 @@ public static class AutoStartManager
     public static void SetEnabled(bool enabled)
     {
         using var key = Registry.CurrentUser.CreateSubKey(RunKeyPath)
-                        ?? throw new InvalidOperationException("无法打开当前用户的启动项注册表。");
+                        ?? throw new InvalidOperationException(LocalizationService.Instance.T("error.autostartOpenRegistry"));
 
         if (enabled)
             key.SetValue(ValueName, GetCommand(), RegistryValueKind.String);
@@ -38,7 +39,7 @@ public static class AutoStartManager
     {
         var path = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(path))
-            throw new InvalidOperationException("无法获取程序路径。");
+            throw new InvalidOperationException(LocalizationService.Instance.T("error.autostartAppPath"));
         return "\"" + path + "\"";
     }
 }

@@ -20,6 +20,12 @@ public sealed class AppSettings
 
     public string TranslationMode { get; set; } = "auto";
 
+    public string? TranslationSource { get; set; }
+
+    public string? TranslationTarget { get; set; }
+
+    public string UiLanguage { get; set; } = "";
+
     public bool AutoStart { get; set; }
 
     public string FontFamily { get; set; } = "Microsoft YaHei UI";
@@ -60,4 +66,26 @@ public sealed class AppSettings
     }
 
     public AppSettings Clone() => (AppSettings)MemberwiseClone();
+
+    public string GetSourceLanguage()
+    {
+        if (!string.IsNullOrWhiteSpace(TranslationSource)) return TranslationSource!;
+        return TranslationMode switch
+        {
+            "zh-en" => "zh",
+            "en-zh" => "en",
+            _ => "auto",
+        };
+    }
+
+    public string GetTargetLanguage()
+    {
+        if (!string.IsNullOrWhiteSpace(TranslationTarget)) return TranslationTarget!;
+        return TranslationMode switch
+        {
+            "zh-en" => "en",
+            "en-zh" => "zh",
+            _ => "auto",
+        };
+    }
 }

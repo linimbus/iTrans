@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Windows.Input;
+using Itrans.Localization;
 
 namespace Itrans.Interop;
 
@@ -52,7 +53,7 @@ public sealed class HotkeyManager : IDisposable
         error = "";
         if (_disposed)
         {
-            error = "快捷键管理器已释放";
+            error = LocalizationService.Instance.T("error.hotkeyManagerDisposed");
             return false;
         }
 
@@ -71,8 +72,8 @@ public sealed class HotkeyManager : IDisposable
         {
             var code = Marshal.GetLastWin32Error();
             error = code == ErrorHotkeyAlreadyRegistered
-                ? $"快捷键 {hotkeyText} 已被其他程序占用"
-                : $"注册快捷键失败（错误码 {code}）";
+                ? LocalizationService.Instance.Format("error.hotkeyInUse", hotkeyText)
+                : LocalizationService.Instance.Format("error.hotkeyRegisterFailed", code);
             return false;
         }
 
@@ -104,7 +105,7 @@ public sealed class HotkeyManager : IDisposable
         error = "";
         if (string.IsNullOrWhiteSpace(text))
         {
-            error = "快捷键为空";
+            error = LocalizationService.Instance.T("error.hotkeyEmpty");
             return false;
         }
 
@@ -135,12 +136,12 @@ public sealed class HotkeyManager : IDisposable
 
         if (keyName == null)
         {
-            error = "快捷键缺少主键（例如 Q）";
+            error = LocalizationService.Instance.T("error.hotkeyMissingMain");
             return false;
         }
         if (modifiers == 0)
         {
-            error = "快捷键至少需要一个修饰键（Ctrl/Alt/Shift/Win）";
+            error = LocalizationService.Instance.T("error.hotkeyMissingModifier");
             return false;
         }
 
@@ -152,7 +153,7 @@ public sealed class HotkeyManager : IDisposable
             }
             else
             {
-                error = $"无法识别的按键：{keyName}";
+                error = LocalizationService.Instance.Format("error.hotkeyUnknown", keyName);
                 return false;
             }
         }
@@ -160,7 +161,7 @@ public sealed class HotkeyManager : IDisposable
         var vk = KeyInterop.VirtualKeyFromKey(key);
         if (vk <= 0)
         {
-            error = $"无法识别的按键：{keyName}";
+            error = LocalizationService.Instance.Format("error.hotkeyUnknown", keyName);
             return false;
         }
 

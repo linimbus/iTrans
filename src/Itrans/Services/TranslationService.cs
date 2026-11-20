@@ -1,61 +1,129 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Itrans.Localization;
 
 namespace Itrans.Services;
 
-public sealed record TranslationResult(string TranslatedText, bool ChineseSource);
+public sealed record TranslationLanguage(string Code, string Name);
+
+public sealed record TranslationResult(string TranslatedText, string Source, string Target);
 
 public sealed class TranslationService
 {
     private const int MaxChunkLength = 2500;
 
+    public static readonly IReadOnlyList<TranslationLanguage> DefaultLanguages = new[]
+    {
+        new TranslationLanguage("zh", "Chinese"),
+        new TranslationLanguage("en", "English"),
+        new TranslationLanguage("ja", "Japanese"),
+        new TranslationLanguage("ko", "Korean"),
+        new TranslationLanguage("de", "German"),
+        new TranslationLanguage("fr", "French"),
+        new TranslationLanguage("es", "Spanish"),
+        new TranslationLanguage("ru", "Russian"),
+        new TranslationLanguage("pt", "Portuguese"),
+        new TranslationLanguage("it", "Italian"),
+    };
+
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(75) };
+
+    public async Task<IReadOnlyList<TranslationLanguage>> GetLanguagesAsync(AppSettings settings, CancellationToken cancellationToken)
+    {
+        var baseUrl = (settings.ServerUrl ?? "").Trim().TrimEnd('/');
+        if (baseUrl.Length == 0) return Array.Empty<TranslationLanguage>();
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        try
+        {
+            using var response = await _http.GetAsync(baseUrl + "/languages", timeout.Token);
+            if (!response.IsSuccessStatusCode) return Array.Empty<TranslationLanguage>();
+
+            var body = await response.Content.ReadAsStringAsync(timeout.Token);
+            return ParseLanguages(body);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return Array.Empty<TranslationLanguage>();
+        }
+    }
+
+    public static IReadOnlyList<TranslationLanguage> ParseLanguages(string body)
+    {
+        var list = new List<TranslationLanguage>();
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            if (document.RootElement.ValueKind != JsonValueKind.Array) return list;
+
+            foreach (var element in document.RootElement.EnumerateArray())
+            {
+                if (element.ValueKind != JsonValueKind.Object) continue;
+                if (!element.TryGetProperty("code", out var codeElement) || codeElement.ValueKind != JsonValueKind.String)
+                    continue;
+
+                var code = codeElement.GetString()?.Trim();
+                if (string.IsNullOrWhiteSpace(code)) continue;
+
+                var name = code;
+                if (element.TryGetProperty("name", out var nameElement) && nameElement.ValueKind == JsonValueKind.String)
+                    name = nameElement.GetString()?.Trim() is { Length: > 0 } value ? value : code;
+
+                list.Add(new TranslationLanguage(code, name));
+            }
+        }
+        catch (JsonException)
+        {
+            return list;
+        }
+
+        return list
+            .GroupBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
 
     public async Task<TranslationResult> TranslateAsync(string text, AppSettings settings, CancellationToken cancellationToken)
     {
         var baseUrl = (settings.ServerUrl ?? "").Trim().TrimEnd('/');
         if (baseUrl.Length == 0)
-            throw new InvalidOperationException("请先在设置中填写 LibreTranslate 服务地址。");
+            throw new InvalidOperationException(LocalizationService.Instance.T("error.serverUrlRequired"));
 
-        var mode = settings.TranslationMode ?? "auto";
-        bool chinese;
-        string source;
+        var source = settings.GetSourceLanguage();
+        var target = settings.GetTargetLanguage();
+        var actualSource = source;
+        var actualTarget = target;
 
-        if (mode == "zh-en")
-        {
-            chinese = true;
-            source = "zh";
-        }
-        else if (mode == "en-zh")
-        {
-            chinese = false;
-            source = "en";
-        }
-        else
+        if (string.Equals(target, "auto", StringComparison.OrdinalIgnoreCase))
         {
             var detected = await DetectAsync(baseUrl, settings.ApiKey, text, cancellationToken);
-            chinese = IsChinese(detected) || (detected.Length == 0 && DetectByText(text) == "zh");
-            source = chinese ? "zh" : "en";
-            if (!chinese && detected.Length > 0 && !detected.Equals("en", StringComparison.OrdinalIgnoreCase))
-                source = "auto";
+            var chinese = IsChinese(detected) || (detected.Length == 0 && DetectByText(text) == "zh");
+            actualTarget = chinese ? "en" : "zh";
+            if (string.Equals(source, "auto", StringComparison.OrdinalIgnoreCase))
+                actualSource = chinese ? "zh" : "auto";
         }
-
-        var target = chinese ? "en" : "zh";
 
         var builder = new StringBuilder();
         foreach (var chunk in SplitText(text, MaxChunkLength))
         {
-            var translated = await TranslateChunkAsync(baseUrl, settings.ApiKey, chunk, source, target, cancellationToken);
+            var translated = await TranslateChunkAsync(baseUrl, settings.ApiKey, chunk, actualSource, actualTarget, cancellationToken);
             if (builder.Length > 0) builder.AppendLine();
             builder.Append(translated);
         }
 
-        return new TranslationResult(builder.ToString(), chinese);
+        return new TranslationResult(builder.ToString(), actualSource, actualTarget);
     }
 
     private async Task<string> TranslateChunkAsync(string baseUrl, string? apiKey, string text, string source, string target, CancellationToken cancellationToken)
@@ -73,7 +141,7 @@ public sealed class TranslationService
         using var response = await _http.PostAsync(baseUrl + "/translate", content, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException($"翻译服务返回 HTTP {(int)response.StatusCode}：{ExtractError(body)}");
+            throw new InvalidOperationException(LocalizationService.Instance.Format("error.translateHttp", (int)response.StatusCode, ExtractError(body)));
 
         using var document = JsonDocument.Parse(body);
         if (document.RootElement.ValueKind == JsonValueKind.Object
@@ -83,7 +151,7 @@ public sealed class TranslationService
             return translated.GetString() ?? "";
         }
 
-        throw new InvalidOperationException("翻译服务响应格式不正确。");
+        throw new InvalidOperationException(LocalizationService.Instance.T("error.translateBadResponse"));
     }
 
     private async Task<string> DetectAsync(string baseUrl, string? apiKey, string text, CancellationToken cancellationToken)

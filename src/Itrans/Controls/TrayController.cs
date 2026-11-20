@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using Itrans.Localization;
 
 namespace Itrans.Controls;
 
@@ -11,6 +12,10 @@ public sealed class TrayController : IDisposable
     private readonly ContextMenuStrip _menu;
     private readonly Icon _icon;
     private readonly ToolStripMenuItem _captureItem;
+    private readonly ToolStripMenuItem _fileItem;
+    private readonly ToolStripMenuItem _showItem;
+    private readonly ToolStripMenuItem _settingsItem;
+    private readonly ToolStripMenuItem _exitItem;
 
     public TrayController(App app)
     {
@@ -18,46 +23,54 @@ public sealed class TrayController : IDisposable
         _icon = TrayIconFactory.CreateIcon();
 
         _captureItem = new ToolStripMenuItem();
-        var fileItem = new ToolStripMenuItem("文件翻译…");
-        var showItem = new ToolStripMenuItem("显示主窗口");
-        var settingsItem = new ToolStripMenuItem("设置…");
-        var exitItem = new ToolStripMenuItem("退出");
+        _fileItem = new ToolStripMenuItem();
+        _showItem = new ToolStripMenuItem();
+        _settingsItem = new ToolStripMenuItem();
+        _exitItem = new ToolStripMenuItem();
 
         _menu = new ContextMenuStrip
         {
-            Font = new Font("Microsoft YaHei UI", 9f),
             ShowImageMargin = false,
         };
         _menu.Items.AddRange(new ToolStripItem[]
         {
             _captureItem,
-            fileItem,
-            showItem,
-            settingsItem,
+            _fileItem,
+            _showItem,
+            _settingsItem,
             new ToolStripSeparator(),
-            exitItem,
+            _exitItem,
         });
 
         _captureItem.Click += (_, _) => _app.Home?.TriggerCapture();
-        fileItem.Click += (_, _) => _app.Home?.OpenFileTranslation();
-        showItem.Click += (_, _) => _app.Home?.ShowMainWindow();
-        settingsItem.Click += (_, _) => _app.Home?.OpenSettings();
-        exitItem.Click += (_, _) => _app.ExitApp();
+        _fileItem.Click += (_, _) => _app.Home?.OpenFileTranslation();
+        _showItem.Click += (_, _) => _app.Home?.ShowMainWindow();
+        _settingsItem.Click += (_, _) => _app.Home?.OpenSettings();
+        _exitItem.Click += (_, _) => _app.ExitApp();
 
         _notifyIcon = new NotifyIcon
         {
             Icon = _icon,
-            Text = "itrans 截图翻译",
             Visible = true,
             ContextMenuStrip = _menu,
         };
         _notifyIcon.DoubleClick += (_, _) => _app.Home?.ShowMainWindow();
 
-        UpdateCaptureText();
-        _app.SettingsChanged += UpdateCaptureText;
+        UpdateTexts();
+        _app.SettingsChanged += UpdateTexts;
+        LocalizationService.Instance.LanguageChanged += UpdateTexts;
     }
 
-    private void UpdateCaptureText() => _captureItem.Text = $"截图翻译 ({_app.Settings.Hotkey})";
+    private void UpdateTexts()
+    {
+        var loc = LocalizationService.Instance;
+        _captureItem.Text = loc.Format("tray.capture", _app.Settings.Hotkey);
+        _fileItem.Text = loc.T("tray.file");
+        _showItem.Text = loc.T("tray.show");
+        _settingsItem.Text = loc.T("tray.settings");
+        _exitItem.Text = loc.T("tray.exit");
+        _notifyIcon.Text = loc.T("tray.tooltip");
+    }
 
     public void ShowBalloon(string title, string text)
     {
@@ -68,7 +81,8 @@ public sealed class TrayController : IDisposable
 
     public void Dispose()
     {
-        _app.SettingsChanged -= UpdateCaptureText;
+        _app.SettingsChanged -= UpdateTexts;
+        LocalizationService.Instance.LanguageChanged -= UpdateTexts;
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
         _menu.Dispose();

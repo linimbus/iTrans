@@ -1,8 +1,12 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using Itrans.Controls;
 using Itrans.Interop;
+using Itrans.Localization;
 using Itrans.Services;
 
 namespace Itrans;
@@ -23,6 +27,8 @@ public partial class App : Application
 
     public ServiceHealthMonitor Health { get; } = new();
 
+    public IReadOnlyList<TranslationLanguage> Languages { get; private set; } = TranslationService.DefaultLanguages;
+
     public HotkeyManager Hotkey { get; } = new();
 
     public TrayController? Tray { get; private set; }
@@ -31,30 +37,31 @@ public partial class App : Application
 
     public event Action? SettingsChanged;
 
+    public event Action? LanguagesChanged;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        LocalizationService.Instance.SetLanguage(null);
 
         var createdNew = true;
         _mutex = new Mutex(true, @"Local\Itrans.SingleInstance", out createdNew);
         if (!createdNew)
         {
-            MessageBox.Show("itrans 已在运行，请查看系统托盘图标。", "itrans", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(LocalizationService.Instance.T("app.alreadyRunning"), "iTrans", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
         }
 
         Settings = AppSettings.Load();
+        Settings.UiLanguage = LocalizationService.Normalize(Settings.UiLanguage);
+        LocalizationService.Instance.SetLanguage(Settings.UiLanguage);
         Home = new MainWindow();
         Tray = new TrayController(this);
         Home.Show();
         Health.Start();
-
-        var error = RegisterHotkey();
-        if (error != null)
-        {
-            Tray.ShowBalloon("快捷键注册失败", $"{Settings.Hotkey}：{error}。可在设置中更换快捷键。");
-        }
+        _ = RefreshLanguagesAsync();
     }
 
     public string? RegisterHotkey()
@@ -64,11 +71,38 @@ public partial class App : Application
 
     public string? ApplySettings(AppSettings settings)
     {
+        settings.UiLanguage = LocalizationService.Normalize(settings.UiLanguage);
         Settings = settings;
+        LocalizationService.Instance.SetLanguage(settings.UiLanguage);
         settings.Save();
         var error = RegisterHotkey();
         SettingsChanged?.Invoke();
+        _ = RefreshLanguagesAsync();
         return error;
+    }
+
+    public async Task RefreshLanguagesAsync()
+    {
+        try
+        {
+            var languages = await Translation.GetLanguagesAsync(Settings, CancellationToken.None);
+            if (languages.Count == 0) return;
+            Languages = languages;
+            LanguagesChanged?.Invoke();
+        }
+        catch
+        {
+        }
+    }
+
+    public string GetLanguageName(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return "";
+        if (code.Equals("auto", StringComparison.OrdinalIgnoreCase))
+            return LocalizationService.Instance.T("language.auto");
+
+        var match = Languages.FirstOrDefault(item => item.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        return match?.Name ?? code;
     }
 
     public void ExitApp()
