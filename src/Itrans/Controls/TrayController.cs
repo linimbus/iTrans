@@ -12,6 +12,7 @@ public sealed class TrayController : IDisposable
     private readonly ContextMenuStrip _menu;
     private readonly Icon _icon;
     private readonly ToolStripMenuItem _captureItem;
+    private readonly ToolStripMenuItem _audioItem;
     private readonly ToolStripMenuItem _fileItem;
     private readonly ToolStripMenuItem _showItem;
     private readonly ToolStripMenuItem _settingsItem;
@@ -23,6 +24,7 @@ public sealed class TrayController : IDisposable
         _icon = TrayIconFactory.CreateIcon();
 
         _captureItem = new ToolStripMenuItem();
+        _audioItem = new ToolStripMenuItem();
         _fileItem = new ToolStripMenuItem();
         _showItem = new ToolStripMenuItem();
         _settingsItem = new ToolStripMenuItem();
@@ -35,6 +37,7 @@ public sealed class TrayController : IDisposable
         _menu.Items.AddRange(new ToolStripItem[]
         {
             _captureItem,
+            _audioItem,
             _fileItem,
             _showItem,
             _settingsItem,
@@ -43,6 +46,7 @@ public sealed class TrayController : IDisposable
         });
 
         _captureItem.Click += (_, _) => _app.Home?.TriggerCapture();
+        _audioItem.Click += (_, _) => _app.Home?.OpenAudioTranslation();
         _fileItem.Click += (_, _) => _app.Home?.OpenFileTranslation();
         _showItem.Click += (_, _) => _app.Home?.ShowMainWindow();
         _settingsItem.Click += (_, _) => _app.Home?.OpenSettings();
@@ -65,6 +69,7 @@ public sealed class TrayController : IDisposable
     {
         var loc = LocalizationService.Instance;
         _captureItem.Text = loc.Format("tray.capture", _app.Settings.Hotkey);
+        _audioItem.Text = loc.T("tray.audio");
         _fileItem.Text = loc.T("tray.file");
         _showItem.Text = loc.T("tray.show");
         _settingsItem.Text = loc.T("tray.settings");

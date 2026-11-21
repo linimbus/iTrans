@@ -12,6 +12,14 @@ public sealed class AppSettings
 
     public string Hotkey { get; set; } = "Ctrl+Alt+Q";
 
+    public string FileTranslationHotkey { get; set; } = "";
+
+    public string AudioTranslationHotkey { get; set; } = "";
+
+    public string SettingsHotkey { get; set; } = "";
+
+    public string AudioListeningLanguage { get; set; } = "en";
+
     public bool OcrChineseSimplified { get; set; } = true;
 
     public bool OcrChineseTraditional { get; set; }

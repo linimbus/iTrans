@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:Itrans.Localization"
+        xmlns:controls="clr-namespace:Itrans.Controls"
         Title="{loc:Loc settings.title}"
         Width="480"
         SizeToContent="Height"
@@ -21,7 +22,7 @@
             <!-- 界面语言 -->
             <TextBlock Text="{loc:Loc settings.uiLanguage}" Style="{StaticResource FieldLabel}" />
             <ComboBox x:Name="UiLanguageBox"
-                      Height="30"
+                      Height="28"
                       DisplayMemberPath="NativeName"
                       SelectedValuePath="Code"
                       VerticalContentAlignment="Center"
@@ -29,24 +30,58 @@
 
             <!-- 服务配置：LibreTranslate 地址与可选 API Key -->
             <TextBlock Text="{loc:Loc settings.serverUrl}" Style="{StaticResource FieldLabel}" />
-            <TextBox x:Name="ServerUrlBox" Style="{StaticResource EditorBox}" Margin="0,0,0,10" />
+            <TextBox x:Name="ServerUrlBox" Style="{StaticResource CompactEditorBox}" Margin="0,0,0,10" />
 
             <TextBlock Text="{loc:Loc settings.apiKey}" Style="{StaticResource FieldLabel}" />
-            <TextBox x:Name="ApiKeyBox" Style="{StaticResource EditorBox}" Margin="0,0,0,10" />
+            <TextBox x:Name="ApiKeyBox" Style="{StaticResource CompactEditorBox}" Margin="0,0,0,10" />
 
             <!-- 文件翻译超时设置 -->
             <TextBlock Text="{loc:Loc settings.fileTimeout}" Style="{StaticResource FieldLabel}" />
-            <TextBox x:Name="FileTimeoutBox" Style="{StaticResource EditorBox}" />
+            <TextBox x:Name="FileTimeoutBox" Style="{StaticResource CompactEditorBox}" />
             <TextBlock Text="{loc:Loc settings.fileTimeoutHint}" Style="{StaticResource HintText}" />
 
-            <!-- 截图快捷键 -->
-            <TextBlock Text="{loc:Loc settings.hotkey}" Style="{StaticResource FieldLabel}" />
-            <TextBox x:Name="HotkeyBox" Style="{StaticResource EditorBox}" />
-            <TextBlock Text="{loc:Loc settings.hotkeyHint}" Style="{StaticResource HintText}" />
+            <!-- 快捷键：2x2 布局，支持按键监听 -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="{loc:Loc settings.hotkey}" Style="{StaticResource FieldLabel}" />
+                    <controls:HotkeyTextBox x:Name="HotkeyBox"
+                                            Style="{StaticResource CompactEditorBox}"
+                                            ToolTip="{loc:Loc settings.hotkeyCaptureHint}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="{loc:Loc settings.fileHotkey}" Style="{StaticResource FieldLabel}" />
+                    <controls:HotkeyTextBox x:Name="FileHotkeyBox"
+                                            Style="{StaticResource CompactEditorBox}"
+                                            ToolTip="{loc:Loc settings.hotkeyCaptureHint}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Margin="0,8,0,0">
+                    <TextBlock Text="{loc:Loc settings.audioHotkey}" Style="{StaticResource FieldLabel}" />
+                    <controls:HotkeyTextBox x:Name="AudioHotkeyBox"
+                                            Style="{StaticResource CompactEditorBox}"
+                                            ToolTip="{loc:Loc settings.hotkeyCaptureHint}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,8,0,0">
+                    <TextBlock Text="{loc:Loc settings.settingsHotkey}" Style="{StaticResource FieldLabel}" />
+                    <controls:HotkeyTextBox x:Name="SettingsHotkeyBox"
+                                            Style="{StaticResource CompactEditorBox}"
+                                            ToolTip="{loc:Loc settings.hotkeyCaptureHint}" />
+                </StackPanel>
+            </Grid>
+            <TextBlock Text="{loc:Loc settings.hotkeysHint}" Style="{StaticResource HintText}" />
 
             <!-- OCR 识别语种，至少选择一种 -->
             <TextBlock Text="{loc:Loc settings.ocrLangs}" Style="{StaticResource FieldLabel}" />
-            <WrapPanel Margin="0,0,0,4">
+            <WrapPanel Margin="0,0,0,2">
                 <CheckBox x:Name="OcrSimplifiedBox" Content="{loc:Loc settings.ocrSimplified}" Margin="0,0,16,0" VerticalContentAlignment="Center" />
                 <CheckBox x:Name="OcrTraditionalBox" Content="{loc:Loc settings.ocrTraditional}" Margin="0,0,16,0" VerticalContentAlignment="Center" />
                 <CheckBox x:Name="OcrEnglishBox" Content="{loc:Loc settings.ocrEnglish}" VerticalContentAlignment="Center" />
@@ -63,20 +98,18 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel>
                     <TextBlock Text="{loc:Loc settings.sourceLanguage}"
-                               Style="{StaticResource FieldLabel}"
-                               Margin="0,0,0,4" />
+                               Style="{StaticResource FieldLabel}" />
                     <ComboBox x:Name="SourceLanguageBox"
-                              Height="30"
+                              Height="28"
                               DisplayMemberPath="Name"
                               SelectedValuePath="Code"
                               VerticalContentAlignment="Center" />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="{loc:Loc settings.targetLanguage}"
-                               Style="{StaticResource FieldLabel}"
-                               Margin="0,0,0,4" />
+                               Style="{StaticResource FieldLabel}" />
                     <ComboBox x:Name="TargetLanguageBox"
-                              Height="30"
+                              Height="28"
                               DisplayMemberPath="Name"
                               SelectedValuePath="Code"
                               VerticalContentAlignment="Center" />
@@ -86,7 +119,7 @@
 
             <!-- 内容字体与字号，作用于原文及译文文本框 -->
             <TextBlock Text="{loc:Loc settings.contentFont}" Style="{StaticResource FieldLabel}" />
-            <Grid Margin="0,0,0,4">
+            <Grid Margin="0,0,0,2">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="100" />
@@ -94,13 +127,13 @@
                 <ComboBox x:Name="FontFamilyBox"
                           IsEditable="True"
                           IsTextSearchEnabled="True"
-                          Height="30"
+                          Height="28"
                           Margin="0,0,8,0"
                           VerticalContentAlignment="Center" />
                 <ComboBox x:Name="FontSizeBox"
                           Grid.Column="1"
                           IsEditable="True"
-                          Height="30"
+                          Height="28"
                           VerticalContentAlignment="Center" />
             </Grid>
             <TextBlock Text="{loc:Loc settings.fontHint}" Style="{StaticResource HintText}" />

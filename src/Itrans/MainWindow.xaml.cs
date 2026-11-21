@@ -21,6 +21,8 @@ public partial class MainWindow : Window
     private bool _trayNoticeShown;
     private string _lastTranslatedText = "";
     private FileTranslationWindow? _fileWindow;
+    private AudioTranslationWindow? _audioWindow;
+    private SettingsWindow? _settingsWindow;
     private string _statusKey = "main.statusReady";
     private object?[] _statusArgs = Array.Empty<object?>();
     private string _directionKey = "main.directionAuto";
@@ -293,9 +295,24 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Settings_Click(object sender, RoutedEventArgs e) => OpenSettings();
+    public void OpenAudioTranslation()
+    {
+        if (_audioWindow != null)
+        {
+            if (_audioWindow.IsVisible)
+            {
+                _audioWindow.Activate();
+                return;
+            }
+            _audioWindow = null;
+        }
 
-    private void FileTranslate_Click(object sender, RoutedEventArgs e) => OpenFileTranslation();
+        var window = new AudioTranslationWindow();
+        window.Closed += (_, _) => _audioWindow = null;
+        _audioWindow = window;
+        window.Show();
+        window.Activate();
+    }
 
     public void OpenFileTranslation()
     {
@@ -318,9 +335,30 @@ public partial class MainWindow : Window
 
     public void OpenSettings()
     {
+        if (_settingsWindow != null)
+        {
+            if (_settingsWindow.IsVisible)
+            {
+                _settingsWindow.Activate();
+                return;
+            }
+            _settingsWindow = null;
+        }
+
         var dialog = new SettingsWindow(App.Instance.Settings.Clone());
-        if (IsVisible) dialog.Owner = this;
-        if (dialog.ShowDialog() != true) return;
+        _settingsWindow = dialog;
+        bool? result;
+        try
+        {
+            if (IsVisible) dialog.Owner = this;
+            result = dialog.ShowDialog();
+        }
+        finally
+        {
+            _settingsWindow = null;
+        }
+
+        if (result != true) return;
 
         var error = App.Instance.ApplySettings(dialog.Result);
         UpdateSettingsText();

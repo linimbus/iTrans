@@ -24,11 +24,9 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 顶部操作栏：复制原文、文件翻译、设置、截图翻译 -->
+        <!-- 顶部操作栏：复制原文、截图翻译 -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,6">
             <Button Content="{loc:Loc main.copySource}" Style="{StaticResource GhostButton}" Margin="0,0,4,0" Click="CopyOcr_Click" />
-            <Button Content="{loc:Loc main.fileTranslate}" Style="{StaticResource SecondaryButton}" Padding="10,4" Margin="0,0,4,0" Click="FileTranslate_Click" />
-            <Button Content="{loc:Loc main.settings}" Style="{StaticResource SecondaryButton}" Padding="10,4" Margin="0,0,4,0" Click="Settings_Click" />
             <Button x:Name="CaptureButton" Content="{loc:Loc main.capture}" Style="{StaticResource PrimaryButton}" Padding="12,5" Click="Capture_Click" />
         </StackPanel>
 

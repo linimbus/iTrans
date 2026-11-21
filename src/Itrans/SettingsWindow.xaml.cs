@@ -36,6 +36,9 @@ public partial class SettingsWindow : Window
         ApiKeyBox.Text = settings.ApiKey;
         FileTimeoutBox.Text = settings.FileTranslationTimeoutSeconds.ToString();
         HotkeyBox.Text = settings.Hotkey;
+        FileHotkeyBox.Text = settings.FileTranslationHotkey;
+        AudioHotkeyBox.Text = settings.AudioTranslationHotkey;
+        SettingsHotkeyBox.Text = settings.SettingsHotkey;
 
         OcrSimplifiedBox.IsChecked = settings.OcrChineseSimplified;
         OcrTraditionalBox.IsChecked = settings.OcrChineseTraditional;
@@ -116,11 +119,29 @@ public partial class SettingsWindow : Window
     {
         if (!TryReadServerUrl(out var url)) return;
 
-        var hotkey = HotkeyBox.Text.Trim();
-        if (!HotkeyManager.TryParse(hotkey, out _, out _, out var hotkeyError))
+        if (!TryReadHotkey(HotkeyBox.Text, "settings.hotkey", true, out var hotkey, out var captureModifiers, out var captureKey)) return;
+        if (!TryReadHotkey(FileHotkeyBox.Text, "settings.fileHotkey", false, out var fileHotkey, out var fileModifiers, out var fileKey)) return;
+        if (!TryReadHotkey(AudioHotkeyBox.Text, "settings.audioHotkey", false, out var audioHotkey, out var audioModifiers, out var audioKey)) return;
+        if (!TryReadHotkey(SettingsHotkeyBox.Text, "settings.settingsHotkey", false, out var settingsHotkey, out var settingsModifiers, out var settingsKey)) return;
+
+        var bindings = new List<(string LabelKey, string Text, uint Modifiers, uint Key)>
         {
-            ShowMessage(Loc.Format("settings.invalidHotkey", hotkeyError), Brushes.OrangeRed);
-            return;
+            ("settings.hotkey", hotkey, captureModifiers, captureKey),
+        };
+        if (fileHotkey.Length > 0) bindings.Add(("settings.fileHotkey", fileHotkey, fileModifiers, fileKey));
+        if (audioHotkey.Length > 0) bindings.Add(("settings.audioHotkey", audioHotkey, audioModifiers, audioKey));
+        if (settingsHotkey.Length > 0) bindings.Add(("settings.settingsHotkey", settingsHotkey, settingsModifiers, settingsKey));
+
+        for (var i = 0; i < bindings.Count; i++)
+        {
+            for (var j = i + 1; j < bindings.Count; j++)
+            {
+                if (bindings[i].Modifiers != bindings[j].Modifiers || bindings[i].Key != bindings[j].Key) continue;
+                ShowMessage(
+                    Loc.Format("settings.duplicateHotkey", Loc.T(bindings[i].LabelKey), Loc.T(bindings[j].LabelKey)),
+                    Brushes.OrangeRed);
+                return;
+            }
         }
 
         var fontFamily = FontFamilyBox.Text.Trim();
@@ -177,6 +198,9 @@ public partial class SettingsWindow : Window
         _settings.ServerUrl = url;
         _settings.ApiKey = ApiKeyBox.Text.Trim();
         _settings.Hotkey = hotkey;
+        _settings.FileTranslationHotkey = fileHotkey;
+        _settings.AudioTranslationHotkey = audioHotkey;
+        _settings.SettingsHotkey = settingsHotkey;
         _settings.OcrChineseSimplified = simplified;
         _settings.OcrChineseTraditional = traditional;
         _settings.OcrEnglish = english;
@@ -233,6 +257,32 @@ public partial class SettingsWindow : Window
         {
             TestButton.IsEnabled = true;
         }
+    }
+
+    private bool TryReadHotkey(string text, string labelKey, bool required, out string value, out uint modifiers, out uint virtualKey)
+    {
+        value = text.Trim();
+        modifiers = 0;
+        virtualKey = 0;
+
+        if (value.Length == 0)
+        {
+            if (!required) return true;
+            ShowMessage(
+                Loc.Format("settings.invalidHotkeyLabel", Loc.T(labelKey), Loc.T("error.hotkeyEmpty")),
+                Brushes.OrangeRed);
+            return false;
+        }
+
+        if (!HotkeyManager.TryParse(value, out modifiers, out virtualKey, out var error))
+        {
+            ShowMessage(
+                Loc.Format("settings.invalidHotkeyLabel", Loc.T(labelKey), error),
+                Brushes.OrangeRed);
+            return false;
+        }
+
+        return true;
     }
 
     private bool TryReadServerUrl(out string url)

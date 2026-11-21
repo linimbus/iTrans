@@ -29,7 +29,10 @@ public partial class App : Application
 
     public IReadOnlyList<TranslationLanguage> Languages { get; private set; } = TranslationService.DefaultLanguages;
 
-    public HotkeyManager Hotkey { get; } = new();
+    private readonly HotkeyManager _captureHotkey = new();
+    private readonly HotkeyManager _fileHotkey = new();
+    private readonly HotkeyManager _audioHotkey = new();
+    private readonly HotkeyManager _settingsHotkey = new();
 
     public TrayController? Tray { get; private set; }
 
@@ -62,11 +65,36 @@ public partial class App : Application
         Home.Show();
         Health.Start();
         _ = RefreshLanguagesAsync();
+
+        var hotkeyError = RegisterHotkeys();
+        if (hotkeyError != null)
+        {
+            Tray.ShowBalloon(LocalizationService.Instance.T("main.hotkeyRegisterFailedTitle"), hotkeyError);
+        }
     }
 
-    public string? RegisterHotkey()
+    public string? RegisterHotkeys()
     {
-        return Hotkey.Register(Settings.Hotkey, () => Home?.TriggerCapture(), out var error) ? null : error;
+        var errors = new List<string>();
+        RegisterOne(_captureHotkey, Settings.Hotkey, "settings.hotkey", () => Home?.TriggerCapture(), errors);
+        RegisterOne(_fileHotkey, Settings.FileTranslationHotkey, "settings.fileHotkey", () => Home?.OpenFileTranslation(), errors);
+        RegisterOne(_audioHotkey, Settings.AudioTranslationHotkey, "settings.audioHotkey", () => Home?.OpenAudioTranslation(), errors);
+        RegisterOne(_settingsHotkey, Settings.SettingsHotkey, "settings.settingsHotkey", () => Home?.OpenSettings(), errors);
+        return errors.Count == 0 ? null : string.Join(Environment.NewLine, errors);
+    }
+
+    private static void RegisterOne(HotkeyManager manager, string? hotkeyText, string labelKey, Action callback, List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(hotkeyText))
+        {
+            manager.UnregisterCurrent();
+            return;
+        }
+
+        if (manager.Register(hotkeyText, callback, out var error)) return;
+
+        var label = LocalizationService.Instance.T(labelKey);
+        errors.Add(LocalizationService.Instance.Format("settings.hotkeyRegisterFailed", label, hotkeyText, error));
     }
 
     public string? ApplySettings(AppSettings settings)
@@ -75,7 +103,7 @@ public partial class App : Application
         Settings = settings;
         LocalizationService.Instance.SetLanguage(settings.UiLanguage);
         settings.Save();
-        var error = RegisterHotkey();
+        var error = RegisterHotkeys();
         SettingsChanged?.Invoke();
         _ = RefreshLanguagesAsync();
         return error;
@@ -111,7 +139,7 @@ public partial class App : Application
         Home?.Close();
         Tray?.Dispose();
         Tray = null;
-        Hotkey.Dispose();
+        DisposeHotkeys();
         Shutdown();
     }
 
@@ -119,8 +147,16 @@ public partial class App : Application
     {
         Health.Dispose();
         Tray?.Dispose();
-        Hotkey.Dispose();
+        DisposeHotkeys();
         _mutex?.Dispose();
         base.OnExit(e);
+    }
+
+    private void DisposeHotkeys()
+    {
+        _captureHotkey.Dispose();
+        _fileHotkey.Dispose();
+        _audioHotkey.Dispose();
+        _settingsHotkey.Dispose();
     }
 }

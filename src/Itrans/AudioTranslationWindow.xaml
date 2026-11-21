@@ -1,0 +1,157 @@
+<Window x:Class="Itrans.AudioTranslationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:Itrans.Localization"
+        Title="{loc:Loc audio.title}"
+        Icon="Assets/itrans-256.png"
+        Width="860"
+        Height="500"
+        MinWidth="680"
+        MinHeight="380"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}"
+        FontFamily="Microsoft YaHei UI"
+        FontSize="12"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <Grid Margin="12,10,12,10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 音频输入源与录音控制 -->
+        <Border Grid.Row="0" Style="{StaticResource Card}" Margin="0,0,0,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="{loc:Loc audio.source}"
+                           Style="{StaticResource FieldLabel}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0" />
+                <ComboBox x:Name="SourceBox"
+                          Grid.Column="1"
+                          Height="30"
+                          DisplayMemberPath="Name"
+                          SelectedValuePath="Code"
+                          VerticalContentAlignment="Center"
+                          SelectionChanged="SourceBox_SelectionChanged" />
+
+                <TextBlock Text="{loc:Loc audio.listeningLanguage}"
+                           Grid.Column="3"
+                           Style="{StaticResource FieldLabel}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0" />
+                <ComboBox x:Name="ListeningLanguageBox"
+                          Grid.Column="4"
+                          Height="30"
+                          DisplayMemberPath="Name"
+                          SelectedValuePath="Code"
+                          VerticalContentAlignment="Center"
+                          SelectionChanged="ListeningLanguageBox_SelectionChanged" />
+
+                <Button x:Name="RecordButton"
+                        Grid.Column="6"
+                        Content="{loc:Loc audio.start}"
+                        Style="{StaticResource PrimaryButton}"
+                        Padding="14,5"
+                        Margin="12,0,0,0"
+                        Click="RecordButton_Click" />
+                <Button x:Name="ClearButton"
+                        Grid.Column="7"
+                        Content="{loc:Loc audio.clear}"
+                        Style="{StaticResource SecondaryButton}"
+                        Padding="10,5"
+                        Margin="8,0,0,0"
+                        Click="Clear_Click" />
+
+                <TextBlock x:Name="DeviceLabel"
+                           Grid.Row="1"
+                           Text="{loc:Loc audio.device}"
+                           Style="{StaticResource FieldLabel}"
+                           VerticalAlignment="Center"
+                           Margin="0,8,8,0" />
+                <ComboBox x:Name="DeviceBox"
+                          Grid.Row="1"
+                          Grid.Column="1"
+                          Grid.ColumnSpan="7"
+                          Height="30"
+                          Margin="0,8,0,0"
+                          DisplayMemberPath="Name"
+                          VerticalContentAlignment="Center"
+                          DropDownOpened="DeviceBox_DropDownOpened" />
+            </Grid>
+        </Border>
+
+        <!-- 原文与译文并排显示 -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Style="{StaticResource Card}">
+                <DockPanel>
+                    <TextBlock Text="{loc:Loc audio.original}"
+                               Style="{StaticResource FieldLabel}"
+                               DockPanel.Dock="Top" />
+                    <TextBox x:Name="OriginalBox"
+                             Style="{StaticResource EditorBox}"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto" />
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource Card}">
+                <DockPanel>
+                    <TextBlock Text="{loc:Loc audio.translation}"
+                               Style="{StaticResource FieldLabel}"
+                               DockPanel.Dock="Top" />
+                    <TextBox x:Name="TranslationBox"
+                             Style="{StaticResource EditorBox}"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto" />
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- 状态栏与服务健康状态 -->
+        <Grid Grid.Row="2" Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="StatusText"
+                       FontSize="10.5"
+                       Foreground="{StaticResource SubtleBrush}"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            <Ellipse x:Name="ServiceDot"
+                     Grid.Column="1"
+                     Width="8"
+                     Height="8"
+                     Fill="#9CA3AF"
+                     VerticalAlignment="Center" />
+        </Grid>
+    </Grid>
+</Window>
