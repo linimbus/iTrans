@@ -6,17 +6,23 @@ namespace Itrans.Services;
 
 public sealed class AppSettings
 {
-    public string ServerUrl { get; set; } = "http://192.168.3.5:5000";
+    public string ServerUrl { get; set; } = "http://192.168.3.3:5000";
 
     public string ApiKey { get; set; } = "";
 
     public string Hotkey { get; set; } = "Ctrl+Alt+Q";
 
-    public string FileTranslationHotkey { get; set; } = "";
+    public string FileTranslationHotkey { get; set; } = "Ctrl+Alt+F";
 
-    public string AudioTranslationHotkey { get; set; } = "";
+    public string AudioTranslationHotkey { get; set; } = "Ctrl+Alt+A";
 
-    public string SettingsHotkey { get; set; } = "";
+    public string SettingsHotkey { get; set; } = "Ctrl+Alt+S";
+
+    public string SelectionTranslationHotkey { get; set; } = "Ctrl+Alt+T";
+
+    public int HotkeyDefaultsVersion { get; set; }
+
+    public bool SelectionPopupEnabled { get; set; } = true;
 
     public string AudioListeningLanguage { get; set; } = "en";
 
@@ -58,7 +64,43 @@ public sealed class AppSettings
             if (File.Exists(SettingsPath))
             {
                 var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath));
-                if (settings != null) return settings;
+                if (settings != null)
+                {
+                    var migrated = false;
+
+                    if (string.Equals(settings.ServerUrl, "http://192.168.3.5:5000", StringComparison.OrdinalIgnoreCase))
+                    {
+                        settings.ServerUrl = "http://192.168.3.3:5000";
+                        migrated = true;
+                    }
+
+                    if (settings.HotkeyDefaultsVersion < 1)
+                    {
+                        if (string.IsNullOrWhiteSpace(settings.FileTranslationHotkey))
+                            settings.FileTranslationHotkey = "Ctrl+Alt+F";
+                        if (string.IsNullOrWhiteSpace(settings.AudioTranslationHotkey))
+                            settings.AudioTranslationHotkey = "Ctrl+Alt+A";
+                        if (string.IsNullOrWhiteSpace(settings.SettingsHotkey))
+                            settings.SettingsHotkey = "Ctrl+Alt+S";
+                        if (string.IsNullOrWhiteSpace(settings.SelectionTranslationHotkey))
+                            settings.SelectionTranslationHotkey = "Ctrl+Alt+T";
+                        settings.HotkeyDefaultsVersion = 1;
+                        migrated = true;
+                    }
+
+                    if (migrated)
+                    {
+                        try
+                        {
+                            settings.Save();
+                        }
+                        catch
+                        {
+                        }
+                    }
+
+                    return settings;
+                }
             }
         }
         catch

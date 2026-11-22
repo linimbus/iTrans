@@ -33,6 +33,9 @@ public partial class App : Application
     private readonly HotkeyManager _fileHotkey = new();
     private readonly HotkeyManager _audioHotkey = new();
     private readonly HotkeyManager _settingsHotkey = new();
+    private readonly HotkeyManager _selectionHotkey = new();
+
+    public SelectionPopupService SelectionPopup { get; } = new();
 
     public TrayController? Tray { get; private set; }
 
@@ -65,6 +68,7 @@ public partial class App : Application
         Home.Show();
         Health.Start();
         _ = RefreshLanguagesAsync();
+        SelectionPopup.UpdateEnabled(Settings.SelectionPopupEnabled);
 
         var hotkeyError = RegisterHotkeys();
         if (hotkeyError != null)
@@ -80,6 +84,7 @@ public partial class App : Application
         RegisterOne(_fileHotkey, Settings.FileTranslationHotkey, "settings.fileHotkey", () => Home?.OpenFileTranslation(), errors);
         RegisterOne(_audioHotkey, Settings.AudioTranslationHotkey, "settings.audioHotkey", () => Home?.OpenAudioTranslation(), errors);
         RegisterOne(_settingsHotkey, Settings.SettingsHotkey, "settings.settingsHotkey", () => Home?.OpenSettings(), errors);
+        RegisterOne(_selectionHotkey, Settings.SelectionTranslationHotkey, "settings.selectionHotkey", () => Home?.TriggerSelectionTranslation(), errors);
         return errors.Count == 0 ? null : string.Join(Environment.NewLine, errors);
     }
 
@@ -104,6 +109,7 @@ public partial class App : Application
         LocalizationService.Instance.SetLanguage(settings.UiLanguage);
         settings.Save();
         var error = RegisterHotkeys();
+        SelectionPopup.UpdateEnabled(settings.SelectionPopupEnabled);
         SettingsChanged?.Invoke();
         _ = RefreshLanguagesAsync();
         return error;
@@ -139,6 +145,7 @@ public partial class App : Application
         Home?.Close();
         Tray?.Dispose();
         Tray = null;
+        SelectionPopup.Dispose();
         DisposeHotkeys();
         Shutdown();
     }
@@ -147,6 +154,7 @@ public partial class App : Application
     {
         Health.Dispose();
         Tray?.Dispose();
+        SelectionPopup.Dispose();
         DisposeHotkeys();
         _mutex?.Dispose();
         base.OnExit(e);
@@ -158,5 +166,6 @@ public partial class App : Application
         _fileHotkey.Dispose();
         _audioHotkey.Dispose();
         _settingsHotkey.Dispose();
+        _selectionHotkey.Dispose();
     }
 }

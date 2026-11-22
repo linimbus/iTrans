@@ -39,6 +39,8 @@ public partial class SettingsWindow : Window
         FileHotkeyBox.Text = settings.FileTranslationHotkey;
         AudioHotkeyBox.Text = settings.AudioTranslationHotkey;
         SettingsHotkeyBox.Text = settings.SettingsHotkey;
+        SelectionHotkeyBox.Text = settings.SelectionTranslationHotkey;
+        SelectionPopupBox.IsChecked = settings.SelectionPopupEnabled;
 
         OcrSimplifiedBox.IsChecked = settings.OcrChineseSimplified;
         OcrTraditionalBox.IsChecked = settings.OcrChineseTraditional;
@@ -123,6 +125,7 @@ public partial class SettingsWindow : Window
         if (!TryReadHotkey(FileHotkeyBox.Text, "settings.fileHotkey", false, out var fileHotkey, out var fileModifiers, out var fileKey)) return;
         if (!TryReadHotkey(AudioHotkeyBox.Text, "settings.audioHotkey", false, out var audioHotkey, out var audioModifiers, out var audioKey)) return;
         if (!TryReadHotkey(SettingsHotkeyBox.Text, "settings.settingsHotkey", false, out var settingsHotkey, out var settingsModifiers, out var settingsKey)) return;
+        if (!TryReadHotkey(SelectionHotkeyBox.Text, "settings.selectionHotkey", false, out var selectionHotkey, out var selectionModifiers, out var selectionKey)) return;
 
         var bindings = new List<(string LabelKey, string Text, uint Modifiers, uint Key)>
         {
@@ -131,6 +134,7 @@ public partial class SettingsWindow : Window
         if (fileHotkey.Length > 0) bindings.Add(("settings.fileHotkey", fileHotkey, fileModifiers, fileKey));
         if (audioHotkey.Length > 0) bindings.Add(("settings.audioHotkey", audioHotkey, audioModifiers, audioKey));
         if (settingsHotkey.Length > 0) bindings.Add(("settings.settingsHotkey", settingsHotkey, settingsModifiers, settingsKey));
+        if (selectionHotkey.Length > 0) bindings.Add(("settings.selectionHotkey", selectionHotkey, selectionModifiers, selectionKey));
 
         for (var i = 0; i < bindings.Count; i++)
         {
@@ -201,6 +205,8 @@ public partial class SettingsWindow : Window
         _settings.FileTranslationHotkey = fileHotkey;
         _settings.AudioTranslationHotkey = audioHotkey;
         _settings.SettingsHotkey = settingsHotkey;
+        _settings.SelectionTranslationHotkey = selectionHotkey;
+        _settings.SelectionPopupEnabled = SelectionPopupBox.IsChecked == true;
         _settings.OcrChineseSimplified = simplified;
         _settings.OcrChineseTraditional = traditional;
         _settings.OcrEnglish = english;

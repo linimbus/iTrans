@@ -1,0 +1,116 @@
+<Window x:Class="Itrans.ScreenshotTranslationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:Itrans.Localization"
+        Title="{loc:Loc main.capture}"
+        Icon="Assets/itrans-256.png"
+        Width="320"
+        Height="500"
+        MinWidth="200"
+        MinHeight="100"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}"
+        FontFamily="Microsoft YaHei UI"
+        FontSize="12"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <Grid Margin="4,4,4,4">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="50" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="50" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 顶部操作栏：置顶、复制原文、截图翻译 -->
+        <Grid Grid.Row="0" Margin="0,0,0,6">
+            <ToggleButton AutomationProperties.Name="{loc:Loc common.pin}"
+                          Style="{StaticResource PinButton}"
+                          HorizontalAlignment="Left"
+                          ToolTip="{loc:Loc common.pinTooltip}"
+                          IsChecked="{Binding Topmost, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="{loc:Loc main.copySource}" Style="{StaticResource GhostButton}" Margin="0,0,4,0" Click="CopyOcr_Click" />
+                <Button x:Name="CaptureButton" Content="{loc:Loc main.capture}" Style="{StaticResource PrimaryButton}" Padding="12,5" Click="Capture_Click" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 原文区域：显示 OCR 识别结果，可编辑 -->
+        <Border Grid.Row="1" Style="{StaticResource Card}">
+            <TextBox x:Name="OcrTextBox"
+                     Style="{StaticResource EditorBox}"
+                     Padding="2"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     LostKeyboardFocus="OcrTextBox_LostKeyboardFocus" />
+        </Border>
+
+        <!-- 可拖动分割条：调整原文与译文区域的高度 -->
+        <GridSplitter Grid.Row="2"
+                      Height="1"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      Background="Transparent"
+                      ResizeDirection="Rows"
+                      ResizeBehavior="PreviousAndNext"
+                      ShowsPreview="False"
+                      Cursor="SizeNS">
+            <GridSplitter.Template>
+                <ControlTemplate TargetType="GridSplitter">
+                    <Border Background="Transparent" Height="4">
+                        <Border x:Name="Line"
+                                Height="1"
+                                Background="{StaticResource LineBrush}"
+                                VerticalAlignment="Center"
+                                Margin="0,0" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Line" Property="Background" Value="{StaticResource AccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </GridSplitter.Template>
+        </GridSplitter>
+
+        <!-- 译文区域：顶部显示翻译方向及重新翻译、复制译文按钮 -->
+        <Border Grid.Row="3" Style="{StaticResource Card}">
+            <DockPanel>
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,0">
+                    <TextBlock x:Name="DirectionText"
+                               Text="{loc:Loc main.directionAuto}"
+                               FontSize="10.5"
+                               Foreground="{StaticResource SubtleBrush}"
+                               VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="{loc:Loc main.retranslate}" Style="{StaticResource GhostButton}" Margin="0,0,4,0" Click="Retranslate_Click" />
+                        <Button Content="{loc:Loc main.copyTranslation}" Style="{StaticResource GhostButton}" Click="CopyTranslation_Click" />
+                    </StackPanel>
+                </Grid>
+                <TextBox x:Name="TranslationTextBox"
+                         Style="{StaticResource EditorBox}"
+                         Padding="2"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto" />
+            </DockPanel>
+        </Border>
+
+        <!-- 底部状态栏：左侧为提示文字，右侧圆点表示服务健康状态 -->
+        <Grid Grid.Row="4" Margin="0,6,0,0">
+            <TextBlock x:Name="StatusText"
+                       FontSize="10.5"
+                       Foreground="{StaticResource SubtleBrush}"
+                       VerticalAlignment="Center" />
+            <Ellipse x:Name="ServiceDot"
+                     Width="8"
+                     Height="8"
+                     Fill="#9CA3AF"
+                     HorizontalAlignment="Right"
+                     VerticalAlignment="Center" />
+        </Grid>
+    </Grid>
+</Window>

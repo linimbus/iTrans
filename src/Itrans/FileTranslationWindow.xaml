@@ -25,19 +25,25 @@
         </Grid.RowDefinitions>
 
         <!-- 窗口标题与当前服务地址 -->
-        <DockPanel Grid.Row="0" Margin="0,0,0,8">
+        <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="False">
             <TextBlock Text="{loc:Loc file.header}"
                        FontSize="15"
                        FontWeight="SemiBold"
                        Foreground="{StaticResource TextBrush}"
                        VerticalAlignment="Center"
                        DockPanel.Dock="Left" />
-            <Ellipse x:Name="ServiceDot"
-                     Width="8"
-                     Height="8"
-                     Fill="#9CA3AF"
-                     HorizontalAlignment="Right"
-                     VerticalAlignment="Center" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <ToggleButton AutomationProperties.Name="{loc:Loc common.pin}"
+                              Style="{StaticResource PinButton}"
+                              Margin="0,0,8,0"
+                              ToolTip="{loc:Loc common.pinTooltip}"
+                              IsChecked="{Binding Topmost, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}" />
+                <Ellipse x:Name="ServiceDot"
+                         Width="8"
+                         Height="8"
+                         Fill="#9CA3AF"
+                         VerticalAlignment="Center" />
+            </StackPanel>
         </DockPanel>
 
         <!-- 翻译选项：翻译方向与译文保存路径并列显示 -->

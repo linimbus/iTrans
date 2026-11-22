@@ -77,6 +77,18 @@
                                             ToolTip="{loc:Loc settings.hotkeyCaptureHint}" />
                 </StackPanel>
             </Grid>
+
+            <TextBlock Text="{loc:Loc settings.selectionHotkey}"
+                       Style="{StaticResource FieldLabel}"
+                       Margin="0,8,0,0" />
+            <controls:HotkeyTextBox x:Name="SelectionHotkeyBox"
+                                    Style="{StaticResource CompactEditorBox}"
+                                    ToolTip="{loc:Loc settings.hotkeyCaptureHint}" />
+            <CheckBox x:Name="SelectionPopupBox"
+                      Content="{loc:Loc settings.selectionPopup}"
+                      Margin="0,4,0,0"
+                      VerticalContentAlignment="Center" />
+            <TextBlock Text="{loc:Loc settings.selectionHint}" Style="{StaticResource HintText}" />
             <TextBlock Text="{loc:Loc settings.hotkeysHint}" Style="{StaticResource HintText}" />
 
             <!-- OCR 识别语种，至少选择一种 -->
