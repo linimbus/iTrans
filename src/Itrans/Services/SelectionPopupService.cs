@@ -17,6 +17,7 @@ public sealed class SelectionPopupService : IDisposable
 
     private readonly LowLevelMouseProc _proc;
     private readonly DispatcherTimer _hideTimer;
+    private readonly DispatcherTimer _doubleClickTimer;
     private IntPtr _hook;
     private SelectionPopupWindow? _popup;
     private bool _mouseDown;
@@ -24,6 +25,11 @@ public sealed class SelectionPopupService : IDisposable
     private bool _downInPopup;
     private int _downX;
     private int _downY;
+    private int _doubleClickX;
+    private int _doubleClickY;
+    private long _lastClickTicks;
+    private int _lastClickX;
+    private int _lastClickY;
     private bool _disposed;
 
     public SelectionPopupService()
@@ -31,6 +37,12 @@ public sealed class SelectionPopupService : IDisposable
         _proc = HookCallback;
         _hideTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _hideTimer.Tick += (_, _) => HidePopup();
+        _doubleClickTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _doubleClickTimer.Tick += (_, _) =>
+        {
+            _doubleClickTimer.Stop();
+            ShowPopupAfterDoubleClick();
+        };
     }
 
     public void UpdateEnabled(bool enabled)
@@ -54,22 +66,29 @@ public sealed class SelectionPopupService : IDisposable
         }
 
         HidePopup();
+        _doubleClickTimer.Stop();
     }
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
         if (nCode >= 0)
         {
-            var message = wParam.ToInt32();
-            if (message is WmLButtonDown or WmMouseMove or WmLButtonUp)
+            try
             {
-                var data = Marshal.PtrToStructure<MsllHookStruct>(lParam);
-                var x = data.pt.X;
-                var y = data.pt.Y;
+                var message = wParam.ToInt32();
+                if (message is WmLButtonDown or WmMouseMove or WmLButtonUp)
+                {
+                    var data = Marshal.PtrToStructure<MsllHookStruct>(lParam);
+                    var x = data.pt.X;
+                    var y = data.pt.Y;
 
-                if (message == WmLButtonDown) OnMouseDown(x, y);
-                else if (message == WmMouseMove) OnMouseMove(x, y);
-                else OnMouseUp(x, y);
+                    if (message == WmLButtonDown) OnMouseDown(x, y);
+                    else if (message == WmMouseMove) OnMouseMove(x, y);
+                    else OnMouseUp(x, y);
+                }
+            }
+            catch
+            {
             }
         }
 
@@ -78,6 +97,7 @@ public sealed class SelectionPopupService : IDisposable
 
     private void OnMouseDown(int x, int y)
     {
+        _doubleClickTimer.Stop();
         _mouseDown = true;
         _dragging = false;
         _downX = x;
@@ -94,6 +114,7 @@ public sealed class SelectionPopupService : IDisposable
     {
         if (!_mouseDown || _downInPopup) return;
         if (Math.Abs(x - _downX) <= 6 && Math.Abs(y - _downY) <= 6) return;
+        _doubleClickTimer.Stop();
         _dragging = true;
     }
 
@@ -110,13 +131,52 @@ public sealed class SelectionPopupService : IDisposable
         _dragging = false;
         _downInPopup = false;
 
-        if (!wasDragging || downInPopup) return;
-        if (!App.Instance.Settings.SelectionPopupEnabled) return;
+        if (downInPopup)
+        {
+            _lastClickTicks = 0;
+            return;
+        }
 
-        var cursor = GetCursorHandle();
-        var iBeam = LoadCursor(IntPtr.Zero, (IntPtr)32513);
-        var cross = LoadCursor(IntPtr.Zero, (IntPtr)32515);
-        if (!IsTextSelectionCursor(cursor, iBeam, cross)) return;
+        if (!wasDragging)
+        {
+            var now = Environment.TickCount64;
+            var isDoubleClick = _lastClickTicks != 0
+                && now - _lastClickTicks <= GetDoubleClickTime()
+                && Math.Abs(x - _lastClickX) <= 4
+                && Math.Abs(y - _lastClickY) <= 4;
+
+            if (isDoubleClick)
+            {
+                _lastClickTicks = 0;
+            }
+            else
+            {
+                _lastClickTicks = now;
+                _lastClickX = x;
+                _lastClickY = y;
+            }
+
+            if (!isDoubleClick) return;
+
+            if (!App.Instance.Settings.SelectionPopupEnabled) return;
+            if (!IsTextSelectionCursorNow()) return;
+
+            var clickForeground = GetForegroundWindow();
+            if (clickForeground == IntPtr.Zero) return;
+
+            GetWindowThreadProcessId(clickForeground, out var clickProcessId);
+            if (clickProcessId == (uint)Environment.ProcessId) return;
+
+            _doubleClickX = x;
+            _doubleClickY = y;
+            _doubleClickTimer.Stop();
+            _doubleClickTimer.Start();
+            return;
+        }
+
+        _lastClickTicks = 0;
+        if (!App.Instance.Settings.SelectionPopupEnabled) return;
+        if (!IsTextSelectionCursorNow()) return;
 
         var foreground = GetForegroundWindow();
         if (foreground == IntPtr.Zero) return;
@@ -127,23 +187,42 @@ public sealed class SelectionPopupService : IDisposable
         Application.Current.Dispatcher.BeginInvoke((Action)(() => ShowPopup(x, y)));
     }
 
+    private void ShowPopupAfterDoubleClick()
+    {
+        if (!App.Instance.Settings.SelectionPopupEnabled) return;
+        if (!IsTextSelectionCursorNow()) return;
+
+        var foreground = GetForegroundWindow();
+        if (foreground == IntPtr.Zero) return;
+
+        GetWindowThreadProcessId(foreground, out var processId);
+        if (processId == (uint)Environment.ProcessId) return;
+
+        ShowPopup(_doubleClickX, _doubleClickY);
+    }
+
     private void ShowPopup(int x, int y)
     {
-        HidePopup();
+        try
+        {
+            HidePopup();
 
-        var popup = new SelectionPopupWindow();
-        popup.TranslateRequested += CaptureAndTranslate;
-        popup.ShowAt(x, y);
-        _popup = popup;
-        _hideTimer.Start();
+            var popup = new SelectionPopupWindow();
+            popup.TranslateRequested += CaptureAndTranslate;
+            popup.ShowAt(x, y);
+            _popup = popup;
+            _hideTimer.Start();
+        }
+        catch
+        {
+            HidePopup();
+        }
     }
 
     private void CaptureAndTranslate()
     {
         HidePopup();
-
-        var text = SelectedTextProvider.TryGetSelectedText(allowUnchangedClipboard: true);
-        App.Instance.Home?.ShowSelectionTranslation(text);
+        App.Instance.Home?.TriggerSelectionTranslation(allowUnchangedClipboard: true);
     }
 
     private void HidePopup()
@@ -176,6 +255,14 @@ public sealed class SelectionPopupService : IDisposable
     private static bool IsTextSelectionCursor(IntPtr cursor, IntPtr iBeam, IntPtr cross)
     {
         return cursor == iBeam || cursor == cross;
+    }
+
+    private static bool IsTextSelectionCursorNow()
+    {
+        var cursor = GetCursorHandle();
+        var iBeam = LoadCursor(IntPtr.Zero, (IntPtr)32513);
+        var cross = LoadCursor(IntPtr.Zero, (IntPtr)32515);
+        return IsTextSelectionCursor(cursor, iBeam, cross);
     }
 
     private static IntPtr GetCursorHandle()
@@ -261,4 +348,7 @@ public sealed class SelectionPopupService : IDisposable
 
     [DllImport("user32.dll")]
     private static extern IntPtr LoadCursor(IntPtr hInstance, IntPtr lpCursorName);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
 }

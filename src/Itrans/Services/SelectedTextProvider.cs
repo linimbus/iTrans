@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Automation;
 
@@ -14,6 +15,40 @@ public static class SelectedTextProvider
         var text = TryGetFromAutomation();
         if (!string.IsNullOrWhiteSpace(text)) return text.Trim();
         return TryGetFromClipboard(allowUnchangedClipboard);
+    }
+
+    public static async Task<string?> TryGetSelectedTextAsync(bool allowUnchangedClipboard, TimeSpan timeout)
+    {
+        var completion = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                completion.TrySetResult(TryGetSelectedText(allowUnchangedClipboard));
+            }
+            catch (Exception ex)
+            {
+                completion.TrySetException(ex);
+            }
+        })
+        {
+            IsBackground = true,
+        };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+
+        var delay = Task.Delay(timeout);
+        var finished = await Task.WhenAny(completion.Task, delay);
+        if (finished != completion.Task) return null;
+
+        try
+        {
+            return await completion.Task;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static string? TryGetFromAutomation()

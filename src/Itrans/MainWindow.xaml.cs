@@ -12,6 +12,7 @@ public partial class MainWindow : Window
 
     private bool _allowClose;
     private bool _trayNoticeShown;
+    private bool _selectionCaptureBusy;
     private ScreenshotTranslationWindow? _screenshotWindow;
     private FileTranslationWindow? _fileWindow;
     private AudioTranslationWindow? _audioWindow;
@@ -115,9 +116,31 @@ public partial class MainWindow : Window
         return window;
     }
 
-    public void TriggerSelectionTranslation()
+    public void TriggerSelectionTranslation(bool allowUnchangedClipboard = false)
     {
-        var text = SelectedTextProvider.TryGetSelectedText();
+        if (_selectionCaptureBusy) return;
+        _selectionCaptureBusy = true;
+        _ = CaptureSelectionAndShowAsync(allowUnchangedClipboard);
+    }
+
+    private async System.Threading.Tasks.Task CaptureSelectionAndShowAsync(bool allowUnchangedClipboard)
+    {
+        string? text = null;
+        try
+        {
+            text = await SelectedTextProvider.TryGetSelectedTextAsync(
+                allowUnchangedClipboard,
+                TimeSpan.FromSeconds(3));
+        }
+        catch
+        {
+            text = null;
+        }
+        finally
+        {
+            _selectionCaptureBusy = false;
+        }
+
         ShowSelectionTranslation(text);
     }
 

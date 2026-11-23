@@ -30,7 +30,14 @@ public sealed class HotkeyManager : IDisposable
         {
             if (m.Msg == WmHotkey && m.WParam.ToInt64() == HotkeyId)
             {
-                Callback?.Invoke();
+                try
+                {
+                    Callback?.Invoke();
+                }
+                catch
+                {
+                }
+
                 return;
             }
             base.WndProc(ref m);
