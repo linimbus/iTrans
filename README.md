@@ -1,5 +1,7 @@
 # itrans · Windows 截图翻译
 
+[简体中文](README.md) | [English](README_en.md)
+
 Windows 10 / 11 原生截图 OCR 翻译工具：按下全局快捷键框选屏幕任意区域，调用 Windows 自带 OCR 识别文字，再通过 LibreTranslate 服务完成中文 ⇄ 英文互译。翻译窗口分为上下两栏，上方是识别结果，下方是翻译结果。除截图外，还支持上传文档、翻译后自动下载译文。默认服务地址为 `http://192.168.3.3:5000`。
 
 ## 功能
